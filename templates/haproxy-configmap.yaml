@@ -7,6 +7,14 @@ metadata:
   labels:
     {{- include "nexus.labels" . | nindent 4 }}
 data:
+  # ── Host-to-Repo mapping ──
+  # Maps incoming hostname to Nexus repository name
+  # Format: <hostname> <repo-name>
+  host-to-repo.map: |
+    {{- range .Values.dockerProxy.route.repos }}
+    {{ .host }} {{ .repo }}
+    {{- end }}
+
   haproxy.cfg: |
     global
       log stdout format raw local0 info
@@ -26,9 +34,13 @@ data:
     frontend docker_frontend
       bind *:{{ .Values.dockerProxy.containerPort }}
 
-      # ─── Extract repo name from subdomain ───
-      # e.g. dkr-4-test.nexus-t01.sunrise.ch → dkr-4-test
-      http-request set-var(txn.repo) req.hdr(Host),field(1,'.')
+      # ─── Resolve repo name from Host header ───
+      # First try: exact match in host-to-repo map file
+      #   e.g. docker-private.sunrise.ch → dkr-private
+      # Fallback: extract first subdomain segment
+      #   e.g. dkr-4-test.nexus-t01.sunrise.ch → dkr-4-test
+      http-request set-var(txn.repo) req.hdr(Host),lower,map(/usr/local/etc/haproxy/host-to-repo.map)
+      http-request set-var(txn.repo) req.hdr(Host),field(1,'.') if !{ var(txn.repo) -m found }
 
       # ─── URL Rewriting ───
       # Docker V2 API: /v2/<image>/... → /repository/<repo>/v2/<image>/...

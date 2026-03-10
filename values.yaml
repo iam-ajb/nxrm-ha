@@ -54,6 +54,10 @@ statefulset:
           mountPath: /usr/local/etc/haproxy/haproxy.cfg
           subPath: haproxy.cfg
           readOnly: true
+        - name: haproxy-config
+          mountPath: /usr/local/etc/haproxy/host-to-repo.map
+          subPath: host-to-repo.map
+          readOnly: true
       resources:
         requests:
           cpu: "50m"
@@ -419,9 +423,18 @@ config:
   mountPath: /sonatype-nexus-conf
   data: null
 
-# ─────────────────────────────────────────────────────────
+# # ─────────────────────────────────────────────────────────
 # Docker Proxy — HAProxy sidecar for URL rewriting
 # ─────────────────────────────────────────────────────────
+# Replicates the existing httpd reverse proxy setup where custom FQDNs
+# are mapped to specific Nexus Docker repositories.
+#
+# Current setup (RHEL 7.9 + httpd):
+#   docker-private.sunrise.ch → p-nexus-as-01:8081/repository/dkr-private/v2/...
+#
+# New setup (OCP + HAProxy sidecar):
+#   docker-private-t01.sunrise.ch → HAProxy sidecar → localhost:8081/repository/dkr-private/v2/...
+#
 dockerProxy:
   enabled: true
   containerPort: 8082
@@ -436,35 +449,63 @@ dockerProxy:
 
   route:
     enabled: true
-    domain: nexus-t01.sunrise.ch # parent domain for subdomains
+    domain: nexus-t01.sunrise.ch        # parent domain (used for wildcard Route)
     balance: "source"
     timeout: "600s"
     timeoutTunnel: "3600s"
     annotations: {}
 
-    # Wildcard Route — single Route for all repos (requires OCP wildcardPolicy: WildcardsAllowed)
+    # Wildcard Route — single Route for *.domain (requires OCP wildcardPolicy: WildcardsAllowed)
+    # When enabled, this adds a wildcard Route IN ADDITION to individual Routes.
+    # Useful for repos that use subdomain pattern: <repo>.nexus-t01.sunrise.ch
     wildcard:
-      enabled: true # set to false if wildcard Routes are not allowed
+      enabled: false                    # disabled by default since using custom FQDNs
 
-    # Individual Routes — used when wildcard.enabled is false
-    # List all 8 Docker repos here
+    # ── Repository Routing Table ──
+    # Each entry maps a DNS hostname to a Nexus repository:
+    #   name : identifier for the OCP Route resource name
+    #   host : the FQDN used by Docker clients and Jenkins pipelines
+    #   repo : the Nexus repository name (as created in Nexus UI)
+    #
+    # The HAProxy sidecar uses the host→repo mapping to rewrite URLs:
+    #   Docker sends:  POST https://<host>/v2/myapp/blobs/uploads/
+    #   HAProxy rewrites to: POST http://localhost:8081/repository/<repo>/v2/myapp/blobs/uploads/
     repos:
+      # ── Test environment (nexus-t01.sunrise.ch subdomains) ──
       - name: dkr-4-test
-      - name: dkr-4-prod
-      - name: dkr-4-stage
-      - name: dkr-4-dev
+        host: dkr-4-test.nexus-t01.sunrise.ch
+        repo: dkr-4-test
+
+      # ── Production-style custom FQDNs (matching existing httpd setup) ──
       - name: dkr-private
+        host: docker-private-t01.sunrise.ch         # test DNS for docker-private.sunrise.ch
+        repo: dkr-private
       - name: dkr-public
+        host: docker-public-t01.sunrise.ch
+        repo: dkr-public
       - name: dkr-release
+        host: docker-release-t01.sunrise.ch
+        repo: dkr-release
       - name: dkr-snapshot
+        host: docker-snapshot-t01.sunrise.ch
+        repo: dkr-snapshot
+      - name: dkr-4-prod
+        host: dkr-4-prod.nexus-t01.sunrise.ch
+        repo: dkr-4-prod
+      - name: dkr-4-stage
+        host: dkr-4-stage.nexus-t01.sunrise.ch
+        repo: dkr-4-stage
+      - name: dkr-4-dev
+        host: dkr-4-dev.nexus-t01.sunrise.ch
+        repo: dkr-4-dev
 
     tls:
       enabled: true
       termination: edge
       insecureEdgeTerminationPolicy: Redirect
-      certificate: # wildcard cert for *.nexus-t01.sunrise.ch (paste or use --set-file)
-      key: # private key
-      caCertificate: # CA cert (optional)
+      certificate:                      # TLS cert (paste PEM or use --set-file)
+      key:                              # private key
+      caCertificate:                    # CA cert (optional)
 
 # ─────────────────────────────────────────────────────────
 # Nexus UI Route (OCP Route for web UI access)
@@ -478,7 +519,7 @@ nexusRoute:
     enabled: true
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
-    certificate: # TLS cert for nexus-t01.sunrise.ch
+    certificate:                        # TLS cert for nexus-t01.sunrise.ch
     key:
     caCertificate:
 

@@ -42,8 +42,8 @@ spec:
       {{ .Values.dockerProxy.route.tls.caCertificate | nindent 6 }}
     {{- end }}
   {{- end }}
-{{- else }}
-# Individual Routes — one per Docker repo subdomain
+{{- end }}
+# Individual Routes — one per Docker repo
 {{- range .Values.dockerProxy.route.repos }}
 ---
 apiVersion: route.openshift.io/v1
@@ -62,7 +62,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
-  host: {{ .name }}.{{ $.Values.dockerProxy.route.domain }}
+  host: {{ .host }}
   to:
     kind: Service
     name: {{ include "nexus.fullname" $ }}-docker-proxy
@@ -86,6 +86,5 @@ spec:
       {{ $.Values.dockerProxy.route.tls.caCertificate | nindent 6 }}
     {{- end }}
   {{- end }}
-{{- end }}
 {{- end }}
 {{- end }}
