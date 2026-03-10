@@ -1,0 +1,38 @@
+{{- if .Values.nexusRoute.enabled }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "nexus.fullname" . }}-ui
+  namespace: {{ default .Release.Namespace .Values.namespaces.nexusNs.name | quote }}
+  labels:
+    {{- include "nexus.labels" . | nindent 4 }}
+  {{- with .Values.nexusRoute.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  host: {{ .Values.nexusRoute.host }}
+  to:
+    kind: Service
+    name: {{ include "nexus.service.headless" . }}
+    weight: 100
+  port:
+    targetPort: nexus-ui
+  {{- if .Values.nexusRoute.tls.enabled }}
+  tls:
+    termination: {{ .Values.nexusRoute.tls.termination }}
+    insecureEdgeTerminationPolicy: {{ .Values.nexusRoute.tls.insecureEdgeTerminationPolicy }}
+    {{- if .Values.nexusRoute.tls.certificate }}
+    certificate: |
+      {{ .Values.nexusRoute.tls.certificate | nindent 6 }}
+    {{- end }}
+    {{- if .Values.nexusRoute.tls.key }}
+    key: |
+      {{ .Values.nexusRoute.tls.key | nindent 6 }}
+    {{- end }}
+    {{- if .Values.nexusRoute.tls.caCertificate }}
+    caCertificate: |
+      {{ .Values.nexusRoute.tls.caCertificate | nindent 6 }}
+    {{- end }}
+  {{- end }}
+{{- end }}

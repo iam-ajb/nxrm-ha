@@ -1,0 +1,91 @@
+{{- if and .Values.dockerProxy.enabled .Values.dockerProxy.route.enabled }}
+{{- if .Values.dockerProxy.route.wildcard.enabled }}
+# Wildcard Route — matches *.domain for all Docker repos
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "nexus.fullname" . }}-docker-wildcard
+  namespace: {{ default .Release.Namespace .Values.namespaces.nexusNs.name | quote }}
+  labels:
+    {{- include "nexus.labels" . | nindent 4 }}
+  annotations:
+    haproxy.router.openshift.io/balance: {{ .Values.dockerProxy.route.balance | quote }}
+    haproxy.router.openshift.io/timeout: {{ .Values.dockerProxy.route.timeout | quote }}
+    haproxy.router.openshift.io/timeout-tunnel: {{ .Values.dockerProxy.route.timeoutTunnel | quote }}
+    haproxy.router.openshift.io/disable_cookies: "true"
+    {{- with .Values.dockerProxy.route.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  host: wildcard.{{ .Values.dockerProxy.route.domain }}
+  wildcardPolicy: Subdomain
+  to:
+    kind: Service
+    name: {{ include "nexus.fullname" . }}-docker-proxy
+    weight: 100
+  port:
+    targetPort: docker-proxy
+  {{- if .Values.dockerProxy.route.tls.enabled }}
+  tls:
+    termination: {{ .Values.dockerProxy.route.tls.termination }}
+    insecureEdgeTerminationPolicy: {{ .Values.dockerProxy.route.tls.insecureEdgeTerminationPolicy }}
+    {{- if .Values.dockerProxy.route.tls.certificate }}
+    certificate: |
+      {{ .Values.dockerProxy.route.tls.certificate | nindent 6 }}
+    {{- end }}
+    {{- if .Values.dockerProxy.route.tls.key }}
+    key: |
+      {{ .Values.dockerProxy.route.tls.key | nindent 6 }}
+    {{- end }}
+    {{- if .Values.dockerProxy.route.tls.caCertificate }}
+    caCertificate: |
+      {{ .Values.dockerProxy.route.tls.caCertificate | nindent 6 }}
+    {{- end }}
+  {{- end }}
+{{- else }}
+# Individual Routes — one per Docker repo subdomain
+{{- range .Values.dockerProxy.route.repos }}
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "nexus.fullname" $ }}-docker-{{ .name }}
+  namespace: {{ default $.Release.Namespace $.Values.namespaces.nexusNs.name | quote }}
+  labels:
+    {{- include "nexus.labels" $ | nindent 4 }}
+  annotations:
+    haproxy.router.openshift.io/balance: {{ $.Values.dockerProxy.route.balance | quote }}
+    haproxy.router.openshift.io/timeout: {{ $.Values.dockerProxy.route.timeout | quote }}
+    haproxy.router.openshift.io/timeout-tunnel: {{ $.Values.dockerProxy.route.timeoutTunnel | quote }}
+    haproxy.router.openshift.io/disable_cookies: "true"
+    {{- with $.Values.dockerProxy.route.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  host: {{ .name }}.{{ $.Values.dockerProxy.route.domain }}
+  to:
+    kind: Service
+    name: {{ include "nexus.fullname" $ }}-docker-proxy
+    weight: 100
+  port:
+    targetPort: docker-proxy
+  {{- if $.Values.dockerProxy.route.tls.enabled }}
+  tls:
+    termination: {{ $.Values.dockerProxy.route.tls.termination }}
+    insecureEdgeTerminationPolicy: {{ $.Values.dockerProxy.route.tls.insecureEdgeTerminationPolicy }}
+    {{- if $.Values.dockerProxy.route.tls.certificate }}
+    certificate: |
+      {{ $.Values.dockerProxy.route.tls.certificate | nindent 6 }}
+    {{- end }}
+    {{- if $.Values.dockerProxy.route.tls.key }}
+    key: |
+      {{ $.Values.dockerProxy.route.tls.key | nindent 6 }}
+    {{- end }}
+    {{- if $.Values.dockerProxy.route.tls.caCertificate }}
+    caCertificate: |
+      {{ $.Values.dockerProxy.route.tls.caCertificate | nindent 6 }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

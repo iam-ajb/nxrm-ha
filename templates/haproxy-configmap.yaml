@@ -1,0 +1,53 @@
+{{- if .Values.dockerProxy.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nexus.fullname" . }}-haproxy-config
+  namespace: {{ default .Release.Namespace .Values.namespaces.nexusNs.name | quote }}
+  labels:
+    {{- include "nexus.labels" . | nindent 4 }}
+data:
+  haproxy.cfg: |
+    global
+      log stdout format raw local0 info
+      maxconn {{ .Values.dockerProxy.haproxy.maxconn }}
+
+    defaults
+      log     global
+      mode    http
+      option  httplog
+      option  dontlognull
+      option  forwardfor
+      timeout connect  {{ .Values.dockerProxy.haproxy.timeoutConnect }}
+      timeout client   {{ .Values.dockerProxy.haproxy.timeoutClient }}
+      timeout server   {{ .Values.dockerProxy.haproxy.timeoutServer }}
+      timeout tunnel   {{ .Values.dockerProxy.haproxy.timeoutTunnel }}
+
+    frontend docker_frontend
+      bind *:{{ .Values.dockerProxy.containerPort }}
+
+      # ─── Extract repo name from subdomain ───
+      # e.g. dkr-4-test.nexus-t01.sunrise.ch → dkr-4-test
+      http-request set-var(txn.repo) req.hdr(Host),field(1,'.')
+
+      # ─── URL Rewriting ───
+      # Docker V2 API: /v2/<image>/... → /repository/<repo>/v2/<image>/...
+      acl is_v2_subpath path_reg ^/v2/.+
+      acl is_v2_root    path /v2/ /v2
+      http-request replace-path ^/v2/(.*)$ /repository/%[var(txn.repo)]/v2/\1 if is_v2_subpath !is_v2_root
+
+      # Docker version check: /v2/ → /repository/<repo>/v2/
+      http-request set-path /repository/%[var(txn.repo)]/v2/ if is_v2_root
+
+      # Requests with /repository/ prefix (from Nexus Location headers) pass through
+
+      # ─── Response Header Rewriting ───
+      # Nexus returns:  Location: /repository/<repo>/v2/...
+      # Docker expects: Location: /v2/...
+      http-response replace-header Location ^(https?://[^/]*)/repository/[^/]+/v2/(.*)$ \1/v2/\2
+
+      default_backend nexus_local
+
+    backend nexus_local
+      server nexus 127.0.0.1:{{ .Values.statefulset.container.containerPort }} check inter 10s
+{{- end }}

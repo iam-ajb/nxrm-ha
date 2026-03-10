@@ -1,0 +1,490 @@
+# Declare variables to be passed into your templates.
+namespaces:
+  nexusNs:
+    enabled: true
+    name: "nexusrepo"
+  cloudwatchNs:
+    enabled: false
+    name: amazon-cloudwatch
+  externaldnsNs: nexus-externaldns
+serviceAccount:
+  enabled: false
+  name: nexus-repository-deployment-sa #This service account in managed by Helm
+  labels: {}
+  annotations:
+    # Set annotations for service account. E.g. if deploying to AWS EKS
+    # and secrets manager is enabled then this role should have permissions for using secret manager.
+    # If using externaldns, role with route53 permissions needed by external-dns
+    # eks.amazonaws.com/role-arn: arn:aws:iam::000000000000:role/nxrm-nexus-role
+azure:
+  enabled: false #set to true to enable azure specific yamls/snippets
+  keyvault:
+    enabled: false # set to true to pull license, db and nexus admin password secrets from azure key vault
+aws:
+  enabled: false #set to true to enable aws specific yamls like external dns and fluent bit
+  clusterRegion: us-east-1
+  secretmanager:
+    enabled: false # set to true to pull license, db and nexus admin password secrets from aws secret manager
+  externaldns:
+    enabled: false
+    domainFilter: example.com #your root domain e.g example.com
+    awsZoneType: private # hosted zone to look at (valid values are public, private or no value for both)
+  fluentbit:
+    enabled: false #set this to true to enable sending of logs to CloudWatch
+    fluentBitVersion: 2.28.0
+    clusterName: nxrm-nexus
+statefulset:
+  serviceName: nxrm-statefulset-service
+  replicaCount: 2
+  clustered: true
+  additionalVolumes:
+    - name: haproxy-config
+      configMap:
+        name: '{{ include "nexus.fullname" . }}-haproxy-config'
+  additionalVolumeMounts:
+  additionalContainers:
+    - name: haproxy-sidecar
+      image: registry.access.redhat.com/rhel9/haproxy:latest
+      ports:
+        - containerPort: 8082
+          name: docker-proxy
+          protocol: TCP
+      volumeMounts:
+        - name: haproxy-config
+          mountPath: /usr/local/etc/haproxy/haproxy.cfg
+          subPath: haproxy.cfg
+          readOnly: true
+      resources:
+        requests:
+          cpu: "50m"
+          memory: "64Mi"
+        limits:
+          cpu: "200m"
+          memory: "128Mi"
+      readinessProbe:
+        tcpSocket:
+          port: 8082
+        initialDelaySeconds: 5
+        periodSeconds: 10
+      livenessProbe:
+        tcpSocket:
+          port: 8082
+        initialDelaySeconds: 10
+        periodSeconds: 30
+  # # Add annotations to statefulset to enhance configurations
+  annotations: {}
+  podAnnotations: {}
+  nodeSelector: {}
+  topologySpreadConstraints: []
+  # hostAliases allows the modification of the hosts file inside a container
+  hostAliases: []
+  # - ip: "192.168.1.10"
+  #   hostnames:
+  #   - "example.com"
+  #   - "www.example.com"
+
+  # Uncomment and modify this to run a command after starting the nexus container.
+  postStart:
+    command: null # '["/bin/sh", "-c", "ls"]'
+  preStart:
+    command: null
+
+  # # Add init containers. e.g. to be used to give specific permissions for nexus-data.
+  # # Add your own init containers as needed
+  initContainers:
+    # chown nexus-data to 'nexus' user and init log directories/files for a new pod
+    # otherwise the side car containers will crash a couple of times and backoff whilst waiting
+    # for nxrm-app to start and this increases the total start up time.
+    - name: chown-nexusdata-owner-to-nexus-and-init-log-dir
+      image: busybox:1.33.1
+      command: [/bin/sh]
+      args:
+        - -c
+        - >-
+          mkdir -p /nexus-data/etc/logback &&
+          mkdir -p /nexus-data/log/tasks &&
+          mkdir -p /nexus-data/log/audit &&
+          touch -a /nexus-data/log/tasks/allTasks.log &&
+          touch -a /nexus-data/log/audit/audit.log &&
+          touch -a /nexus-data/log/request.log &&
+          chown -R '200:200' /nexus-data
+      volumeMounts:
+        - name: nexus-data
+          mountPath: /nexus-data
+      resources:
+        limits:
+          cpu: "0.2"
+          memory: "512Mi"
+        requests:
+          cpu: "0.1"
+          memory: "256Mi"
+  container:
+    image:
+      repository: sonatype/nexus3
+      nexusTag: 3.90.1
+    resources:
+      # See help documentation, these are minimum system requirements
+      requests:
+        cpu: 8
+        memory: "8Gi"
+      limits:
+        cpu: 16
+        memory: "16Gi"
+    containerPort: 8081
+    pullPolicy: IfNotPresent
+    terminationGracePeriod: 120
+    env:
+      nexusDBName: nexus
+      nexusDBPort: 5432
+      install4jAddVmParams: "-Xms2703m -Xmx2703m"
+      jdbcUrlParams: null # Must start with a '?' e.g. "?foo=bar&baz=foo"
+      zeroDowntimeEnabled: false
+    additionalEnv:
+      null
+      # -- Uncomment these when using secret.existingDbSecret.enabled = true
+      # - name: DB_NAME
+      #   valueFrom:
+      #     secretKeyRef:
+      #       name: secret-name
+      #       key: secret-key
+      # - name: DB_HOST
+      #   valueFrom:
+      #     secretKeyRef:
+      #       name: secret-name
+      #       key: secret-key
+      # - name: DB_USER
+      #   valueFrom:
+      #     secretKeyRef:
+      #       name: secret-name
+      #       key: secret-key
+      # - name: DB_PASSWORD
+      #   valueFrom:
+      #     secretKeyRef:
+    #       name: secret-name
+    #       key: secret-key
+  requestLogContainer:
+    image:
+      repository: busybox
+      tag: 1.33.1
+    resources:
+      limits:
+        cpu: "0.2"
+        memory: "512Mi"
+      requests:
+        cpu: "0.1"
+        memory: "256Mi"
+  auditLogContainer:
+    image:
+      repository: busybox
+      tag: 1.33.1
+    resources:
+      limits:
+        cpu: "0.2"
+        memory: "512Mi"
+      requests:
+        cpu: "0.1"
+        memory: "256Mi"
+  taskLogContainer:
+    image:
+      repository: busybox
+      tag: 1.33.1
+    resources:
+      limits:
+        cpu: "0.2"
+        memory: "512Mi"
+      requests:
+        cpu: "0.1"
+        memory: "256Mi"
+  startupProbe: # Allow up to 30 minutes for the container to finish any pending DB migration. Once the startup probe succeeds the liveness- and readiness probes get activated (no need for initialDelaySeconds).
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 1
+    failureThreshold: 180
+    path: /
+  livenessProbe:
+    initialDelaySeconds: 0
+    periodSeconds: 60
+    timeoutSeconds: 1
+    failureThreshold: 6
+    path: /
+  readinessProbe:
+    initialDelaySeconds: 0
+    periodSeconds: 60
+    timeoutSeconds: 1
+    failureThreshold: 6
+    path: /
+  imagePullSecrets:
+    # -- The base64 encoded dockerconfigjson
+    secret: ""
+    # -- Use an existing imagePullSecret created by a secrets operator
+    existingSecret:
+      # -- By default the existing secret is disabled, set this to true in order to provide an existing imagePullSecret
+      enabled: false
+      # -- The existing imagePullSecret name
+      name: ""
+ingress:
+  name: "nexus-ingress"
+  enabled: false
+  host: null #host to apply this ingress rule to e.g. example.com. Set it as you wish
+  hostPath: /
+  dockersubdomain: false # uncomment this if you'd like to create a wildcard rule in your ingress for docker sub domain routing. This will result in the creation of routing rules in your load balancer for sub domains of your host. Thus, you must also set the host
+  defaultRule: false
+  additionalRules: null
+  ingressClassName: null # e.g. nginx, alb
+  #  tls:
+  #    - secretName: "tlsSecretName1"
+  #      hosts:
+  #      - repo.foo1
+  #      - repo.bar1
+  #    - secretName: "tlsSecretName2"
+  #      hosts:
+  #        - repo.foo2
+  #        - repo.bar2
+  annotations:
+#  Note: the annotations below are just a guide; delete or insert more as needed depending on your use case: aws, azure, on prem
+#    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+#    alb.ingress.kubernetes.io/scheme: internal # scheme
+#    alb.ingress.kubernetes.io/subnets: subnet-1,subnet-2 #comma separated list of subnet ids
+#    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+#    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:0000000000000:certificate/00000000-1111-2222-3333-444444444444  # The AWS Certificate Manager ARN for your HTTPS certificate
+#    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:0000000000000:certificate/00000000-1111-2222-3333-444444444444  # Comment out if you don't use docker repositories - The AWS Certificate Manager ARN for your HTTPS certificate
+#    external-dns.alpha.kubernetes.io/hostname: dockerrepo1.example.com, dockerrepo2.example.com, dockerrepo3.example.com
+logStorage:
+  tailSecondaryLogs: true
+  combineTaskLogs: true
+storageClass:
+  enabled: false # For built-in storage class, set storageClass.enabled to false
+  name: nexus-storage # For built-in storage class, set storageClass.enabled to false and specify the name of the built-in storage class here e.g. managed-csi for AKS
+  provisioner: provisionerName # To use your own storage class set storageClass.enabled to true and specify provisioner. E.g. for AKS use managed-csi. For AWS EKS: ebs.csi.aws.com. In case of AWS EKS cluster running version less than 1.23 use 'kubernetes.io/aws-ebs'
+  volumeBindingMode: "WaitForFirstConsumer"
+  reclaimPolicy: Retain
+#  parameters:
+#    type: type
+#    fsType: "fsType" # e.g. ext4
+#    iopsPerGB: "10"
+pvc:
+  accessModes: ReadWriteOnce # Set to ReadWriteMany if using EFS/Azure Files/NFS for shared log storage
+  storage: 2Gi
+  volumeClaimTemplate:
+    enabled: false
+  existingClaim: null
+
+service: # Nexus Repo NodePort Service
+  annotations: {}
+  nexus:
+    enabled: false
+    type: NodePort
+    protocol: TCP
+    port: 80
+    targetPort: 8081
+  headless:
+    annotations: {}
+    publishNotReadyAddresses: true # We want all pods in the StatefulSet to have their addresses published even before they're ready.
+externalsecrets:
+  enabled: false
+  secretstore:
+    name: nexus-secret-store
+    spec:
+      provider:
+  #        aws:
+  #          service: SecretsManager
+  #          region: us-east-1
+  #          auth:
+  #            jwt:
+  #              serviceAccountRef:
+  #                name: nexus-repository-deployment-sa # Use the same service account name as specified in serviceAccount.name
+  # Example for Azure
+  #    spec:
+  #      provider:
+  #        azurekv:
+  #          authType: WorkloadIdentity
+  #          vaultUrl: "https://xx-xxxx-xx.vault.azure.net"
+  #          serviceAccountRef:
+  #            name: nexus-repository-deployment-sa # Use the same service account name as specified in serviceAccount.name
+  # Example for Google (GCP)
+  #    spec:
+  #      provider:
+  #        gcpsm:
+  #          projectID: "nxrm-gcp-deployments"
+  #          auth:
+  #            workloadIdentity:
+  #              clusterLocation: "us-central1-a"
+  #              clusterName: "test-gke-cluster"
+  #              serviceAccountRef:
+  #                name: nexus-repository-deployment-sa
+  #                namespace: nexusrepo
+
+  secrets:
+    nexusSecret:
+      enabled: false
+      refreshInterval: 1h
+      providerSecretName: nexus-secret.json
+      decodingStrategy: null # For Azure set to Base64
+    database:
+      refreshInterval: 1h
+      valueIsJson: false
+      providerSecretName: dbSecretName # The name of the AWS SecretsManager/Azure KeyVault/etc. secret
+      dbUserKey: username #  The name of the key in the secret that contains your database username
+      dbPasswordKey: password # The name of the key in the secret that contains your database password
+      dbHostKey: host # The name of the key in the secret that contains your database host
+    admin:
+      refreshInterval: 1h
+      valueIsJson: false
+      providerSecretName: adminSecretName # The name of the AWS SecretsManager/Azure KeyVault/etc. secret
+      adminPasswordKey: "nexusAdminPassword" # The name of the key in the secret that contains your nexus repository admin password
+    license:
+      providerSecretName: nexus-repo-license.lic # The name of the AWS SecretsManager/Azure KeyVault/etc. secret that contains your Nexus Repository license
+      decodingStrategy: null # Can be Base64
+      refreshInterval: 1h
+secret:
+  secretProviderClass: "secretProviderClass"
+  provider: provider # e.g. aws, azure etc
+  dbSecret:
+    enabled: false # Enable to apply database-secret.yaml which allows you to specify db credentials
+  db:
+    user: nxrm_db_user
+    userAlias: nxrm_db_user_alias
+    password: nxrm_db_password
+    passwordAlias: nxrm_db_password_alias
+    host: nxrm_db_host
+    hostAlias: nxrm_db_host_alias
+  # -- Use an existing secret for the database variables: DB_NAME, DB_HOST, DB_USER, DB_PASSWORD
+  existingDbSecret:
+    # -- Enabled the use of an already created secret, you need to uncomment the values from additionalEnv
+    enabled: false
+  nexusAdmin:
+    name: "nexusAdminPassword"
+    alias: "admin-nxrm-password-alias"
+  nexusAdminSecret:
+    enabled: false # Enable to apply nexus-admin-secret.yaml which allows you to the initial admin password for nexus repository
+    adminPassword: yourinitialnexuspassword #You should change this when you login for the first time
+  license:
+    name: nexus-repo-license.lic
+    # -- Use an already created secret with the license contents in base64, it takes the name from the above field -> name: nexus-repo-license.lic and the mount path from below: licenseSecret.mountPath
+    existingSecret: false
+    licenseSecret:
+      enabled: false
+      file: # Specify the license file name with --set-file secret.license.licenseSecret.file="file_name" helm option
+      fileContentsBase64: your_license_file_contents_in_base_64
+      mountPath: /var/nexus-repo-license
+  nexusSecret:
+    enabled: false
+    name: nexus-secret.json
+    secretKeyfile: "secretfileName" # Specify the nexus secrets file name with --set-file secret.nexusSecret.secretKeyfile="file_name" helm option
+    mountPath: /var/nexus-repo-secrets
+  azure:
+    # a managed identity or service principal that has secrets management access to the key vault
+    userAssignedIdentityID: "userAssignedIdentityID"
+    tenantId: "azureTenantId"
+    keyvaultName: yourazurekeyvault
+    useVMManagedIdentity: true
+    usePodIdentity: false
+    nexusSecret:
+      enabled: false
+  aws:
+    license:
+      arn: arn:aws:secretsmanager:us-east-1:000000000000:secret:nxrm-nexus-license
+    nexusSecret:
+      enabled: false
+      arn: arn:aws:secretsmanager:us-east-1:000000000000:secret:nxrm-nexus-secrets-file
+    adminpassword:
+      arn: arn:aws:secretsmanager:us-east-1:000000000000:secret:admin-nxrm-password
+    rds:
+      arn: arn:aws:secretsmanager:us-east-1:000000000000:secret:nxrmrds-cred-nexus
+nexus:
+  # Default the pods UID and GID to match the nexus3 container.
+  # Customize or remove these values from the securityContext as appropriate for
+  # your deployment environment.
+  securityContext:
+    runAsUser: 200
+  properties:
+    override: false
+    data: null # specify a list of key and values to override default nexus.properties
+  extraLabels: {}
+  extraSelectorLabels: {}
+  docker:
+    enabled: false
+    type: NodePort
+    protocol: TCP
+  # registries:
+  #   - host: chart.local
+  #     port: 5000
+  #     secretName: registry-secret
+  #     targetPort: 8081
+  #     annotations: {}
+
+# Enable configmap and add arbitrary data in configmap
+config:
+  enabled: false
+  mountPath: /sonatype-nexus-conf
+  data: null
+
+# ─────────────────────────────────────────────────────────
+# Docker Proxy — HAProxy sidecar for URL rewriting
+# ─────────────────────────────────────────────────────────
+dockerProxy:
+  enabled: true
+  containerPort: 8082
+
+  haproxy:
+    image: registry.access.redhat.com/rhel9/haproxy:latest
+    maxconn: 4096
+    timeoutConnect: "60s"
+    timeoutClient: "600s"
+    timeoutServer: "600s"
+    timeoutTunnel: "3600s"
+
+  route:
+    enabled: true
+    domain: nexus-t01.sunrise.ch # parent domain for subdomains
+    balance: "source"
+    timeout: "600s"
+    timeoutTunnel: "3600s"
+    annotations: {}
+
+    # Wildcard Route — single Route for all repos (requires OCP wildcardPolicy: WildcardsAllowed)
+    wildcard:
+      enabled: true # set to false if wildcard Routes are not allowed
+
+    # Individual Routes — used when wildcard.enabled is false
+    # List all 8 Docker repos here
+    repos:
+      - name: dkr-4-test
+      - name: dkr-4-prod
+      - name: dkr-4-stage
+      - name: dkr-4-dev
+      - name: dkr-private
+      - name: dkr-public
+      - name: dkr-release
+      - name: dkr-snapshot
+
+    tls:
+      enabled: true
+      termination: edge
+      insecureEdgeTerminationPolicy: Redirect
+      certificate: # wildcard cert for *.nexus-t01.sunrise.ch (paste or use --set-file)
+      key: # private key
+      caCertificate: # CA cert (optional)
+
+# ─────────────────────────────────────────────────────────
+# Nexus UI Route (OCP Route for web UI access)
+# ─────────────────────────────────────────────────────────
+nexusRoute:
+  enabled: true
+  host: nexus-t01.sunrise.ch
+  annotations:
+    haproxy.router.openshift.io/timeout: "120s"
+  tls:
+    enabled: true
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+    certificate: # TLS cert for nexus-t01.sunrise.ch
+    key:
+    caCertificate:
+
+# ─────────────────────────────────────────────────────────
+# Pod Disruption Budget
+# ─────────────────────────────────────────────────────────
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
