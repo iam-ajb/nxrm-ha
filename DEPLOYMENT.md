@@ -1,73 +1,71 @@
 # Nexus HA on OpenShift — Deployment Guide
 
-This chart deploys Sonatype Nexus Repository Pro in HA mode on OpenShift with an **HAProxy sidecar** for Docker registry support. It replicates the existing httpd reverse proxy pattern where custom DNS hostnames map to specific Nexus Docker repositories — but with TLS on every route.
+> **⚠️ This chart has been modified from Sonatype's official [`nxrm-ha`](https://github.com/sonatype/nxrm3-ha-repository) Helm chart (v90.1.0).**
+> The following customizations have been added for OpenShift Docker registry support:
+> - **HAProxy sidecar** for Docker V2 URL rewriting (no dedicated connector ports needed)
+> - **OCP Route templates** for Docker repos (subdomain-based) and Nexus UI
+> - **Host-to-repo mapping** via HAProxy map file (replicates httpd vhost pattern)
+> - **PodDisruptionBudget** for HA protection during rolling updates
+
+---
 
 ## Architecture
 
 ```
-Docker client (Jenkins)
-  │  docker push docker-private-t01.sunrise.ch/myapp:1.0
+Docker client (Jenkins on GKE)
+  │  docker push dkr-private.nexus-t01.sunrise.ch/myapp:1.0
   ▼
-OCP HAProxy Router  (balance: source → sticky sessions, TLS edge)
-  │  Per-repo Route: docker-private-t01.sunrise.ch
+OCP HAProxy Router  (TLS edge termination, balance: source → sticky sessions)
+  │  Route: dkr-private.nexus-t01.sunrise.ch → Service: nexus-docker-proxy (:8082)
   ▼
-┌───────────────── Nexus Pod ─────────────────┐
-│  HAProxy Sidecar (:8082)   Nexus (:8081)    │
-│  - looks up hostname in    - path-based     │
-│    host-to-repo.map          routing on 8081│
-│  - rewrites /v2/... →     - shared DB       │
-│    /repository/<repo>/v2/  - shared blob    │
-│  - proxies to localhost      store          │
-└─────────────────────────────────────────────┘
+┌───────────────── Nexus Pod ──────────────────────────────────┐
+│                                                              │
+│  HAProxy Sidecar (:8082)              Nexus App (:8081)      │
+│  ┌─────────────────────┐              ┌──────────────────┐   │
+│  │ 1. Read Host header │              │                  │   │
+│  │ 2. Lookup map file  │──proxy──────▶│ Path-based       │   │
+│  │ 3. Rewrite URL:     │  localhost   │ routing on 8081  │   │
+│  │    /v2/... →        │   :8081      │                  │   │
+│  │    /repository/     │              │ Shared DB        │   │
+│  │    <repo>/v2/...    │              │ Shared Blob Store│   │
+│  └─────────────────────┘              └──────────────────┘   │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-### How URL Rewriting Works
+### URL Rewriting Flow
 
-| Step | What Happens |
-|---|---|
-| Docker sends | `POST https://docker-private-t01.sunrise.ch/v2/myapp/blobs/uploads/` |
-| OCP Route | TLS terminates, forwards to HAProxy sidecar (port 8082) |
-| HAProxy reads Host header | `docker-private-t01.sunrise.ch` |
-| HAProxy looks up map file | `docker-private-t01.sunrise.ch` → `dkr-private` |
-| HAProxy rewrites path | `/v2/myapp/blobs/uploads/` → `/repository/dkr-private/v2/myapp/blobs/uploads/` |
-| HAProxy proxies to Nexus | `localhost:8081/repository/dkr-private/v2/myapp/blobs/uploads/` |
+```
+Docker sends  →  POST https://dkr-private.nexus-t01.sunrise.ch/v2/myapp/blobs/uploads/
+OCP Route     →  TLS terminates, forwards to HAProxy sidecar (port 8082)
+HAProxy       →  Host header: dkr-private.nexus-t01.sunrise.ch
+              →  Map lookup: dkr-private.nexus-t01.sunrise.ch → dkr-private
+              →  Rewrite: /v2/myapp/blobs/uploads/ → /repository/dkr-private/v2/myapp/blobs/uploads/
+              →  Proxy to: http://localhost:8081/repository/dkr-private/v2/myapp/blobs/uploads/
+```
+
+### Session Affinity (Solves "Unknown Blob" / UUID Mismatch)
+
+- `balance: source` on the OCP Route ties the client IP to the **same Nexus pod**
+- HAProxy sidecar proxies to `localhost:8081` — traffic never leaves the pod
+- All blob uploads for a single `docker push` go to the same Nexus instance
+- **Requires:** GKE Cloud NAT with a static IP (dynamic IP breaks affinity)
 
 ---
 
-## Prerequisites
+## Prerequisites Checklist
 
-### 1. Nexus Repository Pro License
-A valid Pro license is required for HA/clustered mode.
+| # | Prerequisite | Who | Detail |
+|---|---|---|---|
+| 1 | **Nexus Pro License** | You | Valid `.lic` file for HA/clustered mode |
+| 2 | **PostgreSQL Database** | DBA team | Host, port (5432), DB name, user, password |
+| 3 | **Shared Storage** | Storage team | RWX PersistentVolume (Isilon/NFS) accessible by all pods |
+| 4 | **Wildcard DNS** | DNS team | `*.nexus-t01.sunrise.ch` → OCP Router LB IP |
+| 5 | **Wildcard TLS Cert** | SSL team | Internal cert for `*.nexus-t01.sunrise.ch` (with `nexus-t01.sunrise.ch` as SAN) |
+| 6 | **GKE DaemonSet Update** | You | Add the internal CA cert to Docker trust store on GKE nodes |
+| 7 | **Static Cloud NAT IP** | GCP team | Ensure `natIpAllocateOption: MANUAL_ONLY` |
 
-### 2. PostgreSQL Database
-An external PostgreSQL database. Collect: host, port (5432), db name, user, password.
-
-### 3. Shared Storage (Blob Store)
-A `ReadWriteMany` (RWX) PersistentVolume (Isilon/NFS/CephFS) accessible by all Nexus pods.
-
-### 4. DNS Records
-Create DNS records for each Docker repo hostname and the Nexus UI:
-
-| Record | Points To |
-|---|---|
-| `nexus-t01.sunrise.ch` | OCP Router LB |
-| `dkr-4-test.nexus-t01.sunrise.ch` | OCP Router LB |
-| `docker-private-t01.sunrise.ch` | OCP Router LB |
-| `docker-public-t01.sunrise.ch` | OCP Router LB |
-| _(etc. for each repo)_ | OCP Router LB |
-
-> **Tip:** If all repos use subdomains of the same parent, a wildcard DNS record (`*.nexus-t01.sunrise.ch`) covers all of them.
-
-### 5. TLS Certificates
-Each OCP Route needs a TLS cert that covers its hostname. Options:
-- **Wildcard cert** (`*.nexus-t01.sunrise.ch`) — covers all subdomain-based repos
-- **SAN cert** — single cert with multiple FQDNs
-- **Individual certs** — one per repo (most overhead)
-- **OCP default cert** — if your cluster has a default wildcard cert on the router
-
-### 6. GKE Cloud NAT (if Jenkins runs in GKE)
-Must use a **static IP**. Dynamic IP can rotate mid-push, breaking `balance: source` affinity.
-
+### Verify GKE Cloud NAT
 ```bash
 gcloud compute routers nats describe <NAT_NAME> --router=<ROUTER_NAME> --region=<REGION>
 # Expect: natIpAllocateOption: MANUAL_ONLY
@@ -75,11 +73,11 @@ gcloud compute routers nats describe <NAT_NAME> --router=<ROUTER_NAME> --region=
 
 ---
 
-## Secrets (Create Before Installation)
+## Secrets
 
-The chart needs three secrets. Choose ONE method:
+The chart requires **three secrets**. Choose one approach:
 
-### Option A: Chart-Managed Secrets (Simplest)
+### Option A: Chart-Managed (Simplest)
 
 Set in `values.yaml`:
 ```yaml
@@ -88,102 +86,89 @@ secret:
     enabled: true
   db:
     user: nxrm_user
-    password: your_db_password
-    host: your_db_host
+    password: <your_db_password>
+    host: <your_db_host>
   nexusAdminSecret:
     enabled: true
-    adminPassword: admin123
+    adminPassword: admin123              # change on first login
   license:
     name: nexus-repo-license.lic
     licenseSecret:
       enabled: true
-      # Use --set-file: --set-file secret.license.licenseSecret.file=./license.lic
+      # provide at install: --set-file secret.license.licenseSecret.file=./license.lic
 ```
 
-### Option B: Manual Secrets
+### Option B: Create Manually Before Install
 
 ```bash
+# Database credentials
 oc create secret generic nxrm-ha-dbsecret -n nx-poc \
   --from-literal=db-user=nxrm_user \
   --from-literal=db-password='<password>' \
   --from-literal=db-host='<db-host>'
 
+# Admin password
 oc create secret generic nxrm-ha-adminsecret -n nx-poc \
   --from-literal=nexus-admin-password='admin123'
 
+# License
 oc create secret generic nexus-repo-license.lic -n nx-poc \
   --from-file=nexus-repo-license.lic=./your-license.lic
 ```
 
-### Option C: External Secrets Operator (Production)
+Then set `secret.dbSecret.enabled=false`, `secret.nexusAdminSecret.enabled=false`, `secret.license.licenseSecret.enabled=false` in `values.yaml`.
 
-See the main [README.md](README.md) for ESO configuration with AWS SM / Azure KV / GCP SM.
+### Option C: External Secrets Operator
+
+See [README.md](README.md) for ESO configuration with AWS SM / Azure KV / GCP SM / HashiCorp Vault.
+
+---
+
+## values.yaml — What to Update
+
+### Must Update
+
+| Parameter | Description | Example |
+|---|---|---|
+| `namespaces.nexusNs.name` | OCP namespace | `nx-poc` |
+| `secret.db.user` | DB username | `nxrm_user` |
+| `secret.db.password` | DB password | `<secure>` |
+| `secret.db.host` | DB host | `cloudsql-proxy.nx-poc.svc` |
+| `secret.nexusAdminSecret.adminPassword` | Initial admin password | `admin123` |
+
+### Should Review
+
+| Parameter | Default | Change If |
+|---|---|---|
+| `statefulset.replicaCount` | `2` | Want 3+ pods |
+| `statefulset.container.resources` | 8Gi/8cpu | Sizing differs |
+| `storageClass.name` | — | Set to your RWX storage class |
+| `pvc.accessModes` | `ReadWriteOnce` | Change to `ReadWriteMany` for HA |
+| `pvc.storage` | `2Gi` | Set to production size |
+| `dockerProxy.haproxy.image` | `registry.access.redhat.com/rhel9/haproxy:latest` | If Red Hat registry unavailable, use `haproxy:2.9-alpine` |
+
+### Docker Repos — Customize Hostnames
+
+All repos use `*.nexus-t01.sunrise.ch` subdomains (covered by one wildcard cert):
+
+```yaml
+dockerProxy:
+  route:
+    repos:
+      - name: dkr-4-test
+        host: dkr-4-test.nexus-t01.sunrise.ch       # ← change host to your FQDN
+        repo: dkr-4-test                             # ← must match Nexus repo name
+```
+
+To change a hostname, just edit the `host` field and run `helm upgrade`.
 
 ---
 
 ## Installation
 
-### Step 1: Create your custom values file
+### Step 1: Prepare your values file
 
-Create `my-values.yaml`:
-
-```yaml
-namespaces:
-  nexusNs:
-    name: "nx-poc"
-
-statefulset:
-  replicaCount: 2
-
-secret:
-  dbSecret:
-    enabled: true
-  db:
-    user: nxrm_user
-    password: your_db_password
-    host: cloudsql-proxy.nx-poc.svc
-  nexusAdminSecret:
-    enabled: true
-    adminPassword: admin123
-  license:
-    name: nexus-repo-license.lic
-    licenseSecret:
-      enabled: true
-
-storageClass:
-  enabled: false
-  name: your-nfs-storage-class
-pvc:
-  accessModes: ReadWriteMany
-  storage: 50Gi
-  volumeClaimTemplate:
-    enabled: true
-
-# ── Docker Proxy ──
-dockerProxy:
-  enabled: true
-  route:
-    enabled: true
-    domain: nexus-t01.sunrise.ch
-    wildcard:
-      enabled: false
-    repos:
-      - name: dkr-4-test
-        host: dkr-4-test.nexus-t01.sunrise.ch
-        repo: dkr-4-test
-      - name: dkr-private
-        host: docker-private-t01.sunrise.ch
-        repo: dkr-private
-      - name: dkr-public
-        host: docker-public-t01.sunrise.ch
-        repo: dkr-public
-      # ... add more repos as needed
-
-# ── Nexus UI ──
-nexusRoute:
-  enabled: true
-  host: nexus-t01.sunrise.ch
-```
+Copy `values.yaml` to `my-values.yaml` and update the parameters listed above.
 
 ### Step 2: Install
 
@@ -191,103 +176,127 @@ nexusRoute:
 helm install nexus ./nxrm-ha \
   -n nx-poc --create-namespace \
   -f my-values.yaml \
-  --set-file secret.license.licenseSecret.file=./your-license.lic
-```
-
-With TLS certs:
-```bash
-helm install nexus ./nxrm-ha \
-  -n nx-poc --create-namespace \
-  -f my-values.yaml \
   --set-file secret.license.licenseSecret.file=./your-license.lic \
   --set-file dockerProxy.route.tls.certificate=./wildcard.crt \
   --set-file dockerProxy.route.tls.key=./wildcard.key \
-  --set-file nexusRoute.tls.certificate=./nexus-ui.crt \
-  --set-file nexusRoute.tls.key=./nexus-ui.key
+  --set-file nexusRoute.tls.certificate=./wildcard.crt \
+  --set-file nexusRoute.tls.key=./wildcard.key
 ```
 
-### Step 3: Verify
+### Step 3: Verify deployment
 
 ```bash
-# Pods should show sidecar
+# Pods should show sidecar containers
 oc get pods -n nx-poc
-# Expected: nexus-nxrm-ha-0   3/3  Running
+# Expected:
+#   nexus-nxrm-ha-0   3/3  Running
+#   nexus-nxrm-ha-1   3/3  Running
 
 # Routes
 oc get routes -n nx-poc
+# Expected: 9 routes (8 Docker + 1 UI)
+```
 
-# Test
-curl -v https://nexus-t01.sunrise.ch                           # UI
-curl -v https://dkr-4-test.nexus-t01.sunrise.ch/v2/            # Docker API
+### Step 4: Test connectivity
+
+```bash
+# Nexus UI
+curl -v https://nexus-t01.sunrise.ch
+
+# Docker V2 API check
+curl -v https://dkr-4-test.nexus-t01.sunrise.ch/v2/
+
+# Docker push
 docker login dkr-4-test.nexus-t01.sunrise.ch
+docker tag alpine:latest dkr-4-test.nexus-t01.sunrise.ch/test:v1
 docker push dkr-4-test.nexus-t01.sunrise.ch/test:v1
 ```
 
 ---
 
-## Post-Installation: Nexus Config
+## Post-Installation: Nexus Repository Config
 
-In Nexus UI → **Administration** → **Repositories**:
-- For each Docker hosted repo: leave **HTTP connector empty**, **HTTPS connector empty**
-- The HAProxy sidecar handles all routing — Nexus uses path-based routing on port 8081 internally
+1. Login to Nexus UI at `https://nexus-t01.sunrise.ch`
+2. Go to **Administration** → **Repository** → **Repositories**
+3. For each Docker hosted repo (`dkr-4-test`, `dkr-private`, etc.):
+   - **HTTP connector**: leave **empty** (no port)
+   - **HTTPS connector**: leave **empty** (no port)
+   - The HAProxy sidecar handles routing — Nexus uses path-based routing on port 8081
 
 ---
 
 ## Common Operations
 
-### Changing a Hostname
+### Change a Repo Hostname
 
-Update the `host` field in `values.yaml` and run `helm upgrade`:
-
+Edit `host` in `values.yaml` → `helm upgrade`:
 ```yaml
-repos:
-  - name: dkr-private
-    host: docker-private-new.sunrise.ch    # ← just change this
-    repo: dkr-private
+- name: dkr-private
+  host: new-hostname.nexus-t01.sunrise.ch     # just change this
+  repo: dkr-private                           # keep same
 ```
 
-```bash
-helm upgrade nexus ./nxrm-ha -n nx-poc -f my-values.yaml
-```
-
-This updates both the OCP Route and the HAProxy map file automatically.
-
-### Adding a New Docker Repository
+### Add a New Docker Repository
 
 1. Create the repo in Nexus UI (no connector port)
-2. Add it to `dockerProxy.route.repos` in `values.yaml`:
+2. Add to `values.yaml`:
    ```yaml
-   - name: dkr-new-repo
-     host: docker-new-t01.sunrise.ch
-     repo: dkr-new-repo
+   - name: dkr-new
+     host: dkr-new.nexus-t01.sunrise.ch
+     repo: dkr-new
    ```
-3. Create DNS record for the new hostname
-4. Run `helm upgrade`
+3. Run `helm upgrade`
 
-### Mapping to Production DNS (Future)
+### Production Migration
 
-When migrating from test to production, update the hostnames:
+When moving from test to production:
+1. Get cert for `*.nexus.sunrise.ch` (production domain)
+2. Update all `host` fields and `domain` in `values.yaml`
+3. Update Jenkins pipeline registry URLs
+4. Update GKE DaemonSet to trust the new CA
+5. Run `helm upgrade`
 
-```yaml
-repos:
-  - name: dkr-private
-    host: docker-private.sunrise.ch      # production DNS
-    repo: dkr-private
+---
+
+## Upgrading
+
+```bash
+helm upgrade nexus ./nxrm-ha -n nx-poc -f my-values.yaml \
+  --set-file secret.license.licenseSecret.file=./your-license.lic \
+  --set-file dockerProxy.route.tls.certificate=./wildcard.crt \
+  --set-file dockerProxy.route.tls.key=./wildcard.key \
+  --set-file nexusRoute.tls.certificate=./wildcard.crt \
+  --set-file nexusRoute.tls.key=./wildcard.key
 ```
 
-Jenkins pipelines won't need `--insecure-registry` anymore since every OCP Route gets TLS automatically.
+## Uninstalling
+
+```bash
+helm uninstall nexus -n nx-poc
+```
+
+> **Note:** PVCs are NOT deleted on uninstall. Delete manually if needed: `oc delete pvc -n nx-poc --all`
 
 ---
 
 ## Troubleshooting
 
 ### "Unknown blob" / UUID mismatch
-1. Check HAProxy sidecar logs: `oc logs <pod> -n nx-poc -c haproxy-sidecar`
-2. Check Nexus logs: `oc logs <pod> -n nx-poc -c nxrm-app | grep -i "uuid\|unknown blob"`
-3. Verify Cloud NAT uses a static IP
+```bash
+# Check HAProxy sidecar logs
+oc logs <pod> -n nx-poc -c haproxy-sidecar
+
+# Check Nexus logs
+oc logs <pod> -n nx-poc -c nxrm-app | grep -i "uuid\|unknown blob"
+
+# Verify session affinity — all requests should hit same pod
+for i in {1..5}; do
+  curl -s -o /dev/null -w "%{remote_ip}\n" https://dkr-4-test.nexus-t01.sunrise.ch/v2/
+done
+```
 
 ### Docker login returns 503
-Nexus may still be starting (up to 5 mins on first boot for DB migration). Check startup probe:
+Nexus can take up to 5 minutes on first boot (DB migration). Check:
 ```bash
 oc describe pod <pod> -n nx-poc | grep -A5 "startup"
 ```
@@ -297,9 +306,14 @@ oc describe pod <pod> -n nx-poc | grep -A5 "startup"
 oc exec <pod> -n nx-poc -c haproxy-sidecar -- haproxy -c -f /usr/local/etc/haproxy/haproxy.cfg
 ```
 
+### Verify host-to-repo map
+```bash
+oc exec <pod> -n nx-poc -c haproxy-sidecar -- cat /usr/local/etc/haproxy/host-to-repo.map
+```
+
 ---
 
-## Configuration Reference (Custom Parameters)
+## Configuration Reference
 
 | Parameter | Description | Default |
 |---|---|---|
@@ -309,14 +323,18 @@ oc exec <pod> -n nx-poc -c haproxy-sidecar -- haproxy -c -f /usr/local/etc/hapro
 | `dockerProxy.haproxy.maxconn` | Max connections | `4096` |
 | `dockerProxy.haproxy.timeout*` | Various timeouts | `60s` to `3600s` |
 | `dockerProxy.route.enabled` | Create OCP Routes | `true` |
-| `dockerProxy.route.domain` | Parent domain (for wildcard) | `nexus-t01.sunrise.ch` |
-| `dockerProxy.route.balance` | LB algorithm | `source` |
-| `dockerProxy.route.wildcard.enabled` | Wildcard Route | `false` |
-| `dockerProxy.route.repos[].name` | Route resource name | - |
-| `dockerProxy.route.repos[].host` | FQDN for Docker clients | - |
-| `dockerProxy.route.repos[].repo` | Nexus repository name | - |
-| `dockerProxy.route.tls.*` | TLS config | edge termination |
-| `nexusRoute.enabled` | Nexus UI Route | `true` |
+| `dockerProxy.route.domain` | Parent domain (for wildcard Route) | `nexus-t01.sunrise.ch` |
+| `dockerProxy.route.balance` | LB algorithm for sticky sessions | `source` |
+| `dockerProxy.route.wildcard.enabled` | Create additional wildcard Route | `false` |
+| `dockerProxy.route.repos[].name` | Route resource identifier | — |
+| `dockerProxy.route.repos[].host` | FQDN used by Docker clients | — |
+| `dockerProxy.route.repos[].repo` | Nexus repository name | — |
+| `dockerProxy.route.tls.enabled` | Enable TLS on Docker Routes | `true` |
+| `dockerProxy.route.tls.termination` | TLS termination type | `edge` |
+| `dockerProxy.route.tls.certificate` | TLS cert PEM (or `--set-file`) | — |
+| `dockerProxy.route.tls.key` | TLS private key PEM | — |
+| `nexusRoute.enabled` | Create Nexus UI Route | `true` |
 | `nexusRoute.host` | UI hostname | `nexus-t01.sunrise.ch` |
-| `podDisruptionBudget.enabled` | PDB | `true` |
-| `podDisruptionBudget.minAvailable` | Min pods | `1` |
+| `nexusRoute.tls.*` | UI Route TLS config | `edge` termination |
+| `podDisruptionBudget.enabled` | Create PDB | `true` |
+| `podDisruptionBudget.minAvailable` | Min pods during disruption | `1` |
