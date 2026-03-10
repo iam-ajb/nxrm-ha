@@ -471,24 +471,9 @@ dockerProxy:
     #   Docker sends:  POST https://<host>/v2/myapp/blobs/uploads/
     #   HAProxy rewrites to: POST http://localhost:8081/repository/<repo>/v2/myapp/blobs/uploads/
     repos:
-      # ── Test environment (nexus-t01.sunrise.ch subdomains) ──
       - name: dkr-4-test
         host: dkr-4-test.nexus-t01.sunrise.ch
         repo: dkr-4-test
-
-      # ── Production-style custom FQDNs (matching existing httpd setup) ──
-      - name: dkr-private
-        host: docker-private-t01.sunrise.ch         # test DNS for docker-private.sunrise.ch
-        repo: dkr-private
-      - name: dkr-public
-        host: docker-public-t01.sunrise.ch
-        repo: dkr-public
-      - name: dkr-release
-        host: docker-release-t01.sunrise.ch
-        repo: dkr-release
-      - name: dkr-snapshot
-        host: docker-snapshot-t01.sunrise.ch
-        repo: dkr-snapshot
       - name: dkr-4-prod
         host: dkr-4-prod.nexus-t01.sunrise.ch
         repo: dkr-4-prod
@@ -498,6 +483,18 @@ dockerProxy:
       - name: dkr-4-dev
         host: dkr-4-dev.nexus-t01.sunrise.ch
         repo: dkr-4-dev
+      - name: dkr-private
+        host: dkr-private.nexus-t01.sunrise.ch
+        repo: dkr-private
+      - name: dkr-public
+        host: dkr-public.nexus-t01.sunrise.ch
+        repo: dkr-public
+      - name: dkr-release
+        host: dkr-release.nexus-t01.sunrise.ch
+        repo: dkr-release
+      - name: dkr-snapshot
+        host: dkr-snapshot.nexus-t01.sunrise.ch
+        repo: dkr-snapshot
 
     tls:
       enabled: true
