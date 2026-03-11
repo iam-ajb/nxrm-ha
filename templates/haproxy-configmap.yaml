@@ -35,12 +35,13 @@ data:
       bind *:{{ .Values.dockerProxy.containerPort }}
 
       # ─── Resolve repo name from Host header ───
-      # First try: exact match in host-to-repo map file
-      #   e.g. docker-private.sunrise.ch → dkr-private
-      # Fallback: extract first subdomain segment
-      #   e.g. dkr-4-test.nexus-t01.sunrise.ch → dkr-4-test
-      http-request set-var(txn.repo) req.hdr(Host),lower,map(/usr/local/etc/haproxy/host-to-repo.map)
-      http-request set-var(txn.repo) req.hdr(Host),field(1,'.') if !{ var(txn.repo) -m found }
+      # The Host header might include a port (e.g. `docker.domain.com:443`).
+      # 1. Strip the port using `regsub`
+      # 2. Check exact match in host-to-repo map file
+      # 3. Fallback: extract first subdomain segment
+      http-request set-var(txn.clean_host) req.hdr(Host),lower,regsub(:.*,,)
+      http-request set-var(txn.repo) var(txn.clean_host),map(/usr/local/etc/haproxy/host-to-repo.map)
+      http-request set-var(txn.repo) var(txn.clean_host),field(1,'.') if !{ var(txn.repo) -m found }
 
       # Set headers so Nexus generates https:// Location headers (fixes chunked push 500 error)
       http-request set-header X-Forwarded-Proto https
