@@ -64,8 +64,22 @@ data:
       # Rewrite Www-Authenticate to force HTTPS for the token endpoint
       http-response replace-header Www-Authenticate ^(.*)http://(.*)$ \1https://\2
 
-      # Rewrite Location to force HTTPS and remove `/repository/<repo>` for chunked pushes
-      http-response replace-header Location ^https?://([^/]+)/repository/[^/]+/v2/(.*)$ https://\1/v2/\2
+      # ─── Location Header Double-Repo Name Fix ───
+      # In Nexus 3, if a registry request comes to the main port instead of a dedicated
+      # Docker port, Nexus dynamically injects the repository name into the Docker API
+      # Location headers (e.g. /v2/<repoName>/<imageName>).
+      # But our HAProxy has ALREADY mapped the hostname to the repository.
+      # If we don't strip <repoName>, Docker sends PATCH requests for an image named
+      # `<repoName>/<imageName>`, causing UUID mismatches and 500 Server Errors!
+      {{- range .Values.dockerProxy.route.repos }}
+      # Absolute paths: Force HTTPS, remove the repo name injected by Nexus
+      http-response replace-header Location ^(?:http://|https://)([^/]+)/v2/{{ .repo }}/(.*)$ https://\1/v2/\2
+      # Relative paths: Remove the repo name injected by Nexus
+      http-response replace-header Location ^/v2/{{ .repo }}/(.*)$ /v2/\1
+      {{- end }}
+      
+      # Fallback for /repository/<repo> (just in case Nexus leaks its internal path)
+      http-response replace-header Location ^(?:http://|https://)([^/]+)/repository/[^/]+/v2/(.*)$ https://\1/v2/\2
 
       default_backend nexus_cluster
 
