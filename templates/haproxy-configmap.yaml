@@ -7,13 +7,7 @@ metadata:
   labels:
     {{- include "nexus.labels" . | nindent 4 }}
 data:
-  # ── Host-to-Repo mapping ──
-  # Maps incoming hostname to Nexus repository name
-  # Format: <hostname> <repo-name>
-  host-to-repo.map: |
-    {{- range .Values.dockerProxy.route.repos }}
-    {{ .host }} {{ .repo }}
-    {{- end }}
+
 
   haproxy.cfg: |+
     global
@@ -37,10 +31,15 @@ data:
       # ─── Resolve repo name from Host header ───
       # The Host header might include a port (e.g. `docker.domain.com:443`).
       # 1. Strip the port using `regsub`
-      # 2. Check exact match in host-to-repo map file
-      # 3. Fallback: extract first subdomain segment
+      # 2. Iterate through Helm config and natively map hosts to repos
       http-request set-var(txn.clean_host) req.hdr(Host),lower,regsub(:.*,,)
-      http-request set-var(txn.repo) var(txn.clean_host),map(/usr/local/etc/haproxy/host-to-repo.map)
+      
+      {{- range .Values.dockerProxy.route.repos }}
+      acl host_{{ .repo | replace "-" "_" }} var(txn.clean_host) -m str {{ .host }}
+      http-request set-var(txn.repo) str("{{ .repo }}") if host_{{ .repo | replace "-" "_" }}
+      {{- end }}
+
+      # If all native ACL lookups failed, txn.repo is still undefined. Fallback to subdomain extraction:
       http-request set-var(txn.repo) var(txn.clean_host),field(1,'.') if !{ var(txn.repo) -m found }
 
       # Set headers so Nexus generates https:// Location headers (fixes chunked push 500 error)
