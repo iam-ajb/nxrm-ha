@@ -1,4 +1,5 @@
 {{- if .Values.nexusRoute.enabled }}
+# Primary UI Route
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
@@ -35,4 +36,46 @@ spec:
       {{ .Values.nexusRoute.tls.caCertificate | nindent 6 }}
     {{- end }}
   {{- end }}
+{{- if .Values.nexusRoute.additionalHosts }}
+{{- range .Values.nexusRoute.additionalHosts }}
+---
+# Additional UI Route: {{ .host }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "nexus.fullname" $ }}-ui-{{ .name }}
+  namespace: {{ default $.Release.Namespace $.Values.namespaces.nexusNs.name | quote }}
+  labels:
+    {{- include "nexus.labels" $ | nindent 4 }}
+  {{- with $.Values.nexusRoute.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  host: {{ .host }}
+  to:
+    kind: Service
+    name: {{ include "nexus.service.headless" $ }}
+    weight: 100
+  port:
+    targetPort: nexus-ui
+  {{- if .tls }}
+  tls:
+    termination: {{ default "edge" .tls.termination }}
+    insecureEdgeTerminationPolicy: {{ default "Redirect" .tls.insecureEdgeTerminationPolicy }}
+    {{- if .tls.certificate }}
+    certificate: |
+      {{ .tls.certificate | nindent 6 }}
+    {{- end }}
+    {{- if .tls.key }}
+    key: |
+      {{ .tls.key | nindent 6 }}
+    {{- end }}
+    {{- if .tls.caCertificate }}
+    caCertificate: |
+      {{ .tls.caCertificate | nindent 6 }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}
 {{- end }}

@@ -519,6 +519,17 @@ nexusRoute:
     key:                                # leave empty
     caCertificate:                      # leave empty
 
+  # Additional UI hostnames (each gets its own Route with its own TLS cert)
+  additionalHosts:
+    - name: sunrise                     # Route will be named: nexus-...-ui-sunrise
+      host: nexus-t01.sunrise.ch        # custom domain — needs its own cert
+      tls:
+        termination: edge
+        insecureEdgeTerminationPolicy: Redirect
+        certificate:                    # TLS cert for nexus-t01.sunrise.ch (use --set-file)
+        key:                            # private key
+        caCertificate:                  # CA cert (optional)
+
 # ─────────────────────────────────────────────────────────
 # Pod Disruption Budget
 # ─────────────────────────────────────────────────────────
