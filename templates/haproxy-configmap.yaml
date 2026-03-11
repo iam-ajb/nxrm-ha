@@ -47,6 +47,9 @@ data:
       http-request set-header X-Forwarded-Port 443
 
       # ─── URL Rewriting ───
+      # Strip 'library/' namespace prepended by Docker pulls for official images (e.g. /v2/library/busybox -> /v2/busybox).
+      http-request replace-path ^/v2/library/(.*)$ /v2/\1
+
       # Docker V2 API: /v2/<image>/... → /repository/<repo>/v2/<image>/...
       acl is_v2_subpath path_reg ^/v2/.+
       acl is_v2_root    path /v2/ /v2
