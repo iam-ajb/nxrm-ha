@@ -58,9 +58,14 @@ data:
       # Requests with /repository/ prefix (from Nexus Location headers) pass through
 
       # ─── Response Header Rewriting ───
-      # Nexus returns:  Location: /repository/<repo>/v2/...
-      # Docker expects: Location: /v2/...
-      http-response replace-header Location ^(https?://[^/]*)/repository/[^/]+/v2/(.*)$ \1/v2/\2
+      # Nexus ignores X-Forwarded-Proto by default, so it generates http:// links.
+      # Docker fails (times out) when trying to follow http:// links due to GKE firewalls.
+      
+      # Rewrite Www-Authenticate to force HTTPS for the token endpoint
+      http-response replace-header Www-Authenticate ^(.*)http://(.*)$ \1https://\2
+
+      # Rewrite Location to force HTTPS and remove `/repository/<repo>` for chunked pushes
+      http-response replace-header Location ^https?://([^/]+)/repository/[^/]+/v2/(.*)$ https://\1/v2/\2
 
       default_backend nexus_local
 
