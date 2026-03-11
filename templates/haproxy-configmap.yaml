@@ -15,7 +15,7 @@ data:
     {{ .host }} {{ .repo }}
     {{- end }}
 
-  haproxy.cfg: |
+  haproxy.cfg: |+
     global
       log stdout format raw local0 info
       maxconn {{ .Values.dockerProxy.haproxy.maxconn }}
@@ -42,6 +42,10 @@ data:
       http-request set-var(txn.repo) req.hdr(Host),lower,map(/usr/local/etc/haproxy/host-to-repo.map)
       http-request set-var(txn.repo) req.hdr(Host),field(1,'.') if !{ var(txn.repo) -m found }
 
+      # Set headers so Nexus generates https:// Location headers (fixes chunked push 500 error)
+      http-request set-header X-Forwarded-Proto https
+      http-request set-header X-Forwarded-Port 443
+
       # ─── URL Rewriting ───
       # Docker V2 API: /v2/<image>/... → /repository/<repo>/v2/<image>/...
       acl is_v2_subpath path_reg ^/v2/.+
@@ -62,4 +66,6 @@ data:
 
     backend nexus_local
       server nexus 127.0.0.1:{{ .Values.statefulset.container.containerPort }} check inter 10s
+
 {{- end }}
+
