@@ -433,7 +433,10 @@ config:
 #   docker-private.sunrise.ch → p-nexus-as-01:8081/repository/dkr-private/v2/...
 #
 # New setup (OCP + HAProxy sidecar):
-#   docker-private-t01.sunrise.ch → HAProxy sidecar → localhost:8081/repository/dkr-private/v2/...
+#   dkr-private.apps.swi.net → HAProxy sidecar → localhost:8081/repository/dkr-private/v2/...
+#
+# Using OCP default domain (*.apps.swi.net) — cluster's wildcard cert covers all Routes,
+# no custom cert needed. Leave tls.certificate and tls.key empty to use the default cert.
 #
 dockerProxy:
   enabled: true
@@ -449,76 +452,72 @@ dockerProxy:
 
   route:
     enabled: true
-    domain: nexus-t01.sunrise.ch        # parent domain (used for wildcard Route)
+    domain: apps.swi.net                # OCP default wildcard domain
     balance: "source"
     timeout: "600s"
     timeoutTunnel: "3600s"
     annotations: {}
 
     # Wildcard Route — single Route for *.domain (requires OCP wildcardPolicy: WildcardsAllowed)
-    # When enabled, this adds a wildcard Route IN ADDITION to individual Routes.
-    # Useful for repos that use subdomain pattern: <repo>.nexus-t01.sunrise.ch
     wildcard:
-      enabled: false                    # disabled by default since using custom FQDNs
+      enabled: false
 
     # ── Repository Routing Table ──
-    # Each entry maps a DNS hostname to a Nexus repository:
-    #   name : identifier for the OCP Route resource name
-    #   host : the FQDN used by Docker clients and Jenkins pipelines
-    #   repo : the Nexus repository name (as created in Nexus UI)
+    # Each entry maps a DNS hostname to a Nexus repository.
+    # Using *.apps.swi.net — covered by OCP's default wildcard cert (no custom cert needed).
     #
     # The HAProxy sidecar uses the host→repo mapping to rewrite URLs:
     #   Docker sends:  POST https://<host>/v2/myapp/blobs/uploads/
     #   HAProxy rewrites to: POST http://localhost:8081/repository/<repo>/v2/myapp/blobs/uploads/
     repos:
       - name: dkr-4-test
-        host: dkr-4-test.nexus-t01.sunrise.ch
+        host: dkr-4-test.apps.swi.net
         repo: dkr-4-test
       - name: dkr-4-prod
-        host: dkr-4-prod.nexus-t01.sunrise.ch
+        host: dkr-4-prod.apps.swi.net
         repo: dkr-4-prod
       - name: dkr-4-stage
-        host: dkr-4-stage.nexus-t01.sunrise.ch
+        host: dkr-4-stage.apps.swi.net
         repo: dkr-4-stage
       - name: dkr-4-dev
-        host: dkr-4-dev.nexus-t01.sunrise.ch
+        host: dkr-4-dev.apps.swi.net
         repo: dkr-4-dev
       - name: dkr-private
-        host: dkr-private.nexus-t01.sunrise.ch
+        host: dkr-private.apps.swi.net
         repo: dkr-private
       - name: dkr-public
-        host: dkr-public.nexus-t01.sunrise.ch
+        host: dkr-public.apps.swi.net
         repo: dkr-public
       - name: dkr-release
-        host: dkr-release.nexus-t01.sunrise.ch
+        host: dkr-release.apps.swi.net
         repo: dkr-release
       - name: dkr-snapshot
-        host: dkr-snapshot.nexus-t01.sunrise.ch
+        host: dkr-snapshot.apps.swi.net
         repo: dkr-snapshot
 
     tls:
       enabled: true
       termination: edge
       insecureEdgeTerminationPolicy: Redirect
-      certificate:                      # TLS cert (paste PEM or use --set-file)
-      key:                              # private key
-      caCertificate:                    # CA cert (optional)
+      certificate:                      # leave empty — OCP default cert covers *.apps.swi.net
+      key:                              # leave empty
+      caCertificate:                    # leave empty
 
 # ─────────────────────────────────────────────────────────
 # Nexus UI Route (OCP Route for web UI access)
 # ─────────────────────────────────────────────────────────
 nexusRoute:
   enabled: true
-  host: nexus-t01.sunrise.ch
+  host: nexus-ui.nx-poc.apps.swi.net    # OCP default domain — covered by cluster cert
   annotations:
     haproxy.router.openshift.io/timeout: "120s"
   tls:
     enabled: true
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
-    certificate:                        # TLS cert for nexus-t01.sunrise.ch
-    key:
-    caCertificate:
+    certificate:                        # leave empty — OCP default cert
+    key:                                # leave empty
+    caCertificate:                      # leave empty
 
 # ─────────────────────────────────────────────────────────
 # Pod Disruption Budget
@@ -526,3 +525,4 @@ nexusRoute:
 podDisruptionBudget:
   enabled: true
   minAvailable: 1
+
