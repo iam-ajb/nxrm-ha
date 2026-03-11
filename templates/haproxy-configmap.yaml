@@ -67,10 +67,16 @@ data:
       # Rewrite Location to force HTTPS and remove `/repository/<repo>` for chunked pushes
       http-response replace-header Location ^https?://([^/]+)/repository/[^/]+/v2/(.*)$ https://\1/v2/\2
 
-      default_backend nexus_local
+      default_backend nexus_cluster
 
-    backend nexus_local
-      server nexus 127.0.0.1:{{ .Values.statefulset.container.containerPort }} check inter 10s
+    resolvers k8s
+      parse-resolv-conf
+      hold valid 10s
+
+    backend nexus_cluster
+      balance hdr(Authorization)
+      hash-type consistent
+      server-template nexus 10 {{ include "nexus.fullname" . }}-hl.{{ default .Release.Namespace .Values.namespaces.nexusNs.name }}.svc.cluster.local:{{ .Values.statefulset.container.containerPort }} check resolvers k8s init-addr none
 
 {{- end }}
 
