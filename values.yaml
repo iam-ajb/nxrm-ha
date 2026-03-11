@@ -54,10 +54,6 @@ statefulset:
           mountPath: /usr/local/etc/haproxy/haproxy.cfg
           subPath: haproxy.cfg
           readOnly: true
-        - name: haproxy-config
-          mountPath: /usr/local/etc/haproxy/host-to-repo.map
-          subPath: host-to-repo.map
-          readOnly: true
       resources:
         requests:
           cpu: "50m"
