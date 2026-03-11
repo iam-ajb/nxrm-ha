@@ -433,9 +433,9 @@ config:
 #   docker-private.sunrise.ch → p-nexus-as-01:8081/repository/dkr-private/v2/...
 #
 # New setup (OCP + HAProxy sidecar):
-#   dkr-private.apps.swi.net → HAProxy sidecar → localhost:8081/repository/dkr-private/v2/...
+#   dkr-private.apps.ocp-t-infra-01.swi.srse.net → HAProxy sidecar → localhost:8081/repository/dkr-private/v2/...
 #
-# Using OCP default domain (*.apps.swi.net) — cluster's wildcard cert covers all Routes,
+# Using OCP default domain (*.apps.ocp-t-infra-01.swi.srse.net) — cluster's wildcard cert covers all Routes,
 # no custom cert needed. Leave tls.certificate and tls.key empty to use the default cert.
 #
 dockerProxy:
@@ -452,7 +452,7 @@ dockerProxy:
 
   route:
     enabled: true
-    domain: apps.swi.net                # OCP default wildcard domain
+    domain: apps.ocp-t-infra-01.swi.srse.net                # OCP default wildcard domain
     balance: "source"
     timeout: "600s"
     timeoutTunnel: "3600s"
@@ -464,42 +464,42 @@ dockerProxy:
 
     # ── Repository Routing Table ──
     # Each entry maps a DNS hostname to a Nexus repository.
-    # Using *.apps.swi.net — covered by OCP's default wildcard cert (no custom cert needed).
+    # Using *.apps.ocp-t-infra-01.swi.srse.net — covered by OCP's default wildcard cert (no custom cert needed).
     #
     # The HAProxy sidecar uses the host→repo mapping to rewrite URLs:
     #   Docker sends:  POST https://<host>/v2/myapp/blobs/uploads/
     #   HAProxy rewrites to: POST http://localhost:8081/repository/<repo>/v2/myapp/blobs/uploads/
     repos:
       - name: dkr-4-test
-        host: dkr-4-test.apps.swi.net
+        host: dkr-4-test.apps.ocp-t-infra-01.swi.srse.net
         repo: dkr-4-test
       - name: dkr-4-prod
-        host: dkr-4-prod.apps.swi.net
+        host: dkr-4-prod.apps.ocp-t-infra-01.swi.srse.net
         repo: dkr-4-prod
       - name: dkr-4-stage
-        host: dkr-4-stage.apps.swi.net
+        host: dkr-4-stage.apps.ocp-t-infra-01.swi.srse.net
         repo: dkr-4-stage
       - name: dkr-4-dev
-        host: dkr-4-dev.apps.swi.net
+        host: dkr-4-dev.apps.ocp-t-infra-01.swi.srse.net
         repo: dkr-4-dev
       - name: dkr-private
-        host: dkr-private.apps.swi.net
+        host: dkr-private.apps.ocp-t-infra-01.swi.srse.net
         repo: dkr-private
       - name: dkr-public
-        host: dkr-public.apps.swi.net
+        host: dkr-public.apps.ocp-t-infra-01.swi.srse.net
         repo: dkr-public
       - name: dkr-release
-        host: dkr-release.apps.swi.net
+        host: dkr-release.apps.ocp-t-infra-01.swi.srse.net
         repo: dkr-release
       - name: dkr-snapshot
-        host: dkr-snapshot.apps.swi.net
+        host: dkr-snapshot.apps.ocp-t-infra-01.swi.srse.net
         repo: dkr-snapshot
 
     tls:
       enabled: true
       termination: edge
       insecureEdgeTerminationPolicy: Redirect
-      certificate:                      # leave empty — OCP default cert covers *.apps.swi.net
+      certificate:                      # leave empty — OCP default cert covers *.apps.ocp-t-infra-01.swi.srse.net
       key:                              # leave empty
       caCertificate:                    # leave empty
 
@@ -508,7 +508,7 @@ dockerProxy:
 # ─────────────────────────────────────────────────────────
 nexusRoute:
   enabled: true
-  host: nexus-ui.nx-poc.apps.swi.net    # OCP default domain — covered by cluster cert
+  host: nexus-ui.nx-poc.apps.ocp-t-infra-01.swi.srse.net    # OCP default domain — covered by cluster cert
   annotations:
     haproxy.router.openshift.io/timeout: "120s"
   tls:

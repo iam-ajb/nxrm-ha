@@ -13,10 +13,10 @@
 
 ```
 Docker client (Jenkins on GKE)
-  │  docker push dkr-private.apps.swi.net/myapp:1.0
+  │  docker push dkr-private.apps.ocp-t-infra-01.swi.srse.net/myapp:1.0
   ▼
 OCP HAProxy Router  (TLS edge termination, balance: source → sticky sessions)
-  │  Route: dkr-private.apps.swi.net → Service: nexus-docker-proxy (:8082)
+  │  Route: dkr-private.apps.ocp-t-infra-01.swi.srse.net → Service: nexus-docker-proxy (:8082)
   ▼
 ┌───────────────── Nexus Pod ──────────────────────────────────┐
 │                                                              │
@@ -36,10 +36,10 @@ OCP HAProxy Router  (TLS edge termination, balance: source → sticky sessions)
 ### URL Rewriting Flow
 
 ```
-Docker sends  →  POST https://dkr-private.apps.swi.net/v2/myapp/blobs/uploads/
+Docker sends  →  POST https://dkr-private.apps.ocp-t-infra-01.swi.srse.net/v2/myapp/blobs/uploads/
 OCP Route     →  TLS terminates, forwards to HAProxy sidecar (port 8082)
-HAProxy       →  Host header: dkr-private.apps.swi.net
-              →  Map lookup: dkr-private.apps.swi.net → dkr-private
+HAProxy       →  Host header: dkr-private.apps.ocp-t-infra-01.swi.srse.net
+              →  Map lookup: dkr-private.apps.ocp-t-infra-01.swi.srse.net → dkr-private
               →  Rewrite: /v2/myapp/blobs/uploads/ → /repository/dkr-private/v2/myapp/blobs/uploads/
               →  Proxy to: http://localhost:8081/repository/dkr-private/v2/myapp/blobs/uploads/
 ```
@@ -55,18 +55,18 @@ HAProxy       →  Host header: dkr-private.apps.swi.net
 
 ## Route and TLS Strategy (Zero Extra Certs for Docker)
 
-This chart uses the OpenShift cluster's default wildcard domain (`*.apps.swi.net`) for all Docker repos to completely avoid managing custom certificates inside Docker clients or the Nexus Helm chart. 
+This chart uses the OpenShift cluster's default wildcard domain (`*.apps.ocp-t-infra-01.swi.srse.net`) for all Docker repos to completely avoid managing custom certificates inside Docker clients or the Nexus Helm chart. 
 
 | Route | Host | Cert Needed? |
 |---|---|---|
-| **Docker repos** | `dkr-4-test.apps.swi.net`, etc. | ❌ No (Cluster default cert covers it) |
-| **Primary UI** | `nexus-ui.nx-poc.apps.swi.net` | ❌ No (Cluster default cert covers it) |
+| **Docker repos** | `dkr-4-test.apps.ocp-t-infra-01.swi.srse.net`, etc. | ❌ No (Cluster default cert covers it) |
+| **Primary UI** | `nexus-ui.nx-poc.apps.ocp-t-infra-01.swi.srse.net` | ❌ No (Cluster default cert covers it) |
 | **Additional UI** | `nexus-t01.sunrise.ch` | ✅ Yes (`nexus-t01` TLS cert required) |
 
 **Benefits:**
 - **Zero TLS warnings** from Jenkins/Docker clients (cluster cert is already trusted).
 - **No `--insecure-registry`** needed anymore.
-- **No DNS records to create** for Docker repos (`*.apps.swi.net` automatically resolves).
+- **No DNS records to create** for Docker repos (`*.apps.ocp-t-infra-01.swi.srse.net` automatically resolves).
 
 ---
 
@@ -162,15 +162,15 @@ See [README.md](README.md) for ESO configuration.
 
 ### Docker Repos — Customize Hostnames
 
-All repos use `*.apps.swi.net` subdomains:
+All repos use `*.apps.ocp-t-infra-01.swi.srse.net` subdomains:
 
 ```yaml
 dockerProxy:
   route:
-    domain: apps.swi.net                # OCP default wildcard domain
+    domain: apps.ocp-t-infra-01.swi.srse.net                # OCP default wildcard domain
     repos:
       - name: dkr-4-test
-        host: dkr-4-test.apps.swi.net   # ← automatically covered by OCP cert
+        host: dkr-4-test.apps.ocp-t-infra-01.swi.srse.net   # ← automatically covered by OCP cert
         repo: dkr-4-test
 ```
 
@@ -215,25 +215,25 @@ oc get routes -n nx-poc
 
 ```bash
 # Nexus Primary UI
-curl -v https://nexus-ui.nx-poc.apps.swi.net
+curl -v https://nexus-ui.nx-poc.apps.ocp-t-infra-01.swi.srse.net
 
 # Nexus Secondary UI
 curl -v https://nexus-t01.sunrise.ch
 
 # Docker V2 API check
-curl -v https://dkr-4-test.apps.swi.net/v2/
+curl -v https://dkr-4-test.apps.ocp-t-infra-01.swi.srse.net/v2/
 
 # Docker push
-docker login dkr-4-test.apps.swi.net
-docker tag alpine:latest dkr-4-test.apps.swi.net/test:v1
-docker push dkr-4-test.apps.swi.net/test:v1
+docker login dkr-4-test.apps.ocp-t-infra-01.swi.srse.net
+docker tag alpine:latest dkr-4-test.apps.ocp-t-infra-01.swi.srse.net/test:v1
+docker push dkr-4-test.apps.ocp-t-infra-01.swi.srse.net/test:v1
 ```
 
 ---
 
 ## Post-Installation: Nexus Repository Config
 
-1. Login to Nexus UI at `https://nexus-ui.nx-poc.apps.swi.net` or `https://nexus-t01.sunrise.ch`
+1. Login to Nexus UI at `https://nexus-ui.nx-poc.apps.ocp-t-infra-01.swi.srse.net` or `https://nexus-t01.sunrise.ch`
 2. Go to **Administration** → **Repository** → **Repositories**
 3. For each Docker hosted repo (`dkr-4-test`, `dkr-private`, etc.):
    - **HTTP connector**: leave **empty** (no port)
@@ -250,7 +250,7 @@ docker push dkr-4-test.apps.swi.net/test:v1
 2. Add to `values.yaml`:
    ```yaml
    - name: dkr-new
-     host: dkr-new.apps.swi.net
+     host: dkr-new.apps.ocp-t-infra-01.swi.srse.net
      repo: dkr-new
    ```
 3. Run `helm upgrade`
@@ -259,7 +259,7 @@ docker push dkr-4-test.apps.swi.net/test:v1
 
 ```bash
 # 1. Enable Docker debug on client
-DOCKER_CLI_DEBUG=1 docker push dkr-4-test.apps.swi.net/myapp:v1
+DOCKER_CLI_DEBUG=1 docker push dkr-4-test.apps.ocp-t-infra-01.swi.srse.net/myapp:v1
 
 # 2. Check HAProxy sidecar logs (live)
 oc logs -f nexus-nxrm-ha-0 -n nx-poc -c haproxy-sidecar
@@ -277,12 +277,12 @@ oc logs -f nexus-nxrm-ha-0 -n nx-poc -c nxrm-app | grep -i "uuid\|unknown blob"
 | `dockerProxy.enabled` | Enable HAProxy sidecar | `true` |
 | `dockerProxy.containerPort` | Sidecar listen port | `8082` |
 | `dockerProxy.haproxy.image` | HAProxy image | `registry.access.redhat.com/rhel9/haproxy:latest` |
-| `dockerProxy.route.domain` | Parent domain | `apps.swi.net` |
+| `dockerProxy.route.domain` | Parent domain | `apps.ocp-t-infra-01.swi.srse.net` |
 | `dockerProxy.route.balance` | LB algorithm for sticky sessions | `source` |
 | `dockerProxy.route.repos[].name` | Route resource identifier | — |
 | `dockerProxy.route.repos[].host` | FQDN used by Docker clients | — |
 | `dockerProxy.route.repos[].repo` | Nexus repository name | — |
 | `nexusRoute.enabled` | Create Nexus primary UI Route | `true` |
-| `nexusRoute.host` | Primary UI hostname | `nexus-ui.nx-poc.apps.swi.net` |
+| `nexusRoute.host` | Primary UI hostname | `nexus-ui.nx-poc.apps.ocp-t-infra-01.swi.srse.net` |
 | `nexusRoute.additionalHosts[].host` | Additional UI hostnames | `nexus-t01.sunrise.ch` |
 | `podDisruptionBudget.enabled` | Create PDB | `true` |
