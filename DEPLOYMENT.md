@@ -189,12 +189,27 @@ Copy `values.yaml` to `my-values.yaml` and update the parameters listed above.
 If using the secondary UI Route (`nexus-t01.sunrise.ch`), provide the cert via `--set-file`. **No cert files are needed for the Docker routes !**
 
 ```bash
-helm install nexus ./nxrm-ha \
-  -n nx-poc --create-namespace \
+helm install nexus ./nxrm-ha -n nx-poc --create-namespace \
   -f my-values.yaml \
-  --set-file secret.license.licenseSecret.file=./your-license.lic \
-  --set-file nexusRoute.additionalHosts[0].tls.certificate=./nexus-t01.crt \
-  --set-file nexusRoute.additionalHosts[0].tls.key=./nexus-t01.key
+  \
+  `# 1. Generate the Database Secret` \
+  --set secret.dbSecret.enabled=true \
+  --set secret.db.host="cloudsql-proxy.nx-poc.svc" \
+  --set secret.db.user="nxrm_user" \
+  --set secret.db.password="your_strong_db_password" \
+  \
+  `# 2. Generate the Admin Password Secret` \
+  --set secret.nexusAdminSecret.enabled=true \
+  --set secret.nexusAdminSecret.adminPassword="your_admin_password" \
+  \
+  `# 3. Read the Nexus Node License` \
+  --set secret.license.licenseSecret.enabled=true \
+  --set-file secret.license.licenseSecret.file=./nexus-repo-license.lic \
+  \
+  `# 4. Supply TLS certificates for the custom UI route (nexus-t01.sunrise.ch)` \
+  --set-file nexusRoute.additionalHosts[0].tls.certificate=./nexus-t01-server.crt \
+  --set-file nexusRoute.additionalHosts[0].tls.key=./nexus-t01.key \
+  --set-file nexusRoute.additionalHosts[0].tls.caCertificate=./nexus-t01-intermediate.crt
 ```
 
 ### Step 3: Verify deployment
