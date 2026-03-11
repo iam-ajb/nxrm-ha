@@ -2,7 +2,7 @@
 namespaces:
   nexusNs:
     enabled: true
-    name: "nexusrepo"
+    name: "nx-poc"
   cloudwatchNs:
     enabled: false
     name: amazon-cloudwatch
@@ -44,7 +44,7 @@ statefulset:
   additionalVolumeMounts:
   additionalContainers:
     - name: haproxy-sidecar
-      image: registry.access.redhat.com/rhel9/haproxy:latest
+      image: haproxy:2.8
       ports:
         - containerPort: 8082
           name: docker-proxy
@@ -110,8 +110,7 @@ statefulset:
           mkdir -p /nexus-data/log/audit &&
           touch -a /nexus-data/log/tasks/allTasks.log &&
           touch -a /nexus-data/log/audit/audit.log &&
-          touch -a /nexus-data/log/request.log &&
-          chown -R '200:200' /nexus-data
+          touch -a /nexus-data/log/request.log
       volumeMounts:
         - name: nexus-data
           mountPath: /nexus-data
@@ -129,11 +128,11 @@ statefulset:
     resources:
       # See help documentation, these are minimum system requirements
       requests:
-        cpu: 8
-        memory: "8Gi"
+        cpu: "500m"
+        memory: "2Gi"
       limits:
-        cpu: 16
-        memory: "16Gi"
+        cpu: 2
+        memory: "4Gi"
     containerPort: 8081
     pullPolicy: IfNotPresent
     terminationGracePeriod: 120
@@ -204,19 +203,19 @@ statefulset:
     periodSeconds: 10
     timeoutSeconds: 1
     failureThreshold: 180
-    path: /
+    path: /service/rest/v1/status
   livenessProbe:
     initialDelaySeconds: 0
     periodSeconds: 60
     timeoutSeconds: 1
     failureThreshold: 6
-    path: /
+    path: /service/rest/v1/status
   readinessProbe:
     initialDelaySeconds: 0
     periodSeconds: 60
     timeoutSeconds: 1
     failureThreshold: 6
-    path: /
+    path: /service/rest/v1/status
   imagePullSecrets:
     # -- The base64 encoded dockerconfigjson
     secret: ""
@@ -344,13 +343,13 @@ secret:
   secretProviderClass: "secretProviderClass"
   provider: provider # e.g. aws, azure etc
   dbSecret:
-    enabled: false # Enable to apply database-secret.yaml which allows you to specify db credentials
+    enabled: true # Enable to apply database-secret.yaml which allows you to specify db credentials
   db:
-    user: nxrm_db_user
+    user: nexus
     userAlias: nxrm_db_user_alias
-    password: nxrm_db_password
+    password: Postgress@32!
     passwordAlias: nxrm_db_password_alias
-    host: nxrm_db_host
+    host: 10.129.13.105
     hostAlias: nxrm_db_host_alias
   # -- Use an existing secret for the database variables: DB_NAME, DB_HOST, DB_USER, DB_PASSWORD
   existingDbSecret:
@@ -367,7 +366,7 @@ secret:
     # -- Use an already created secret with the license contents in base64, it takes the name from the above field -> name: nexus-repo-license.lic and the mount path from below: licenseSecret.mountPath
     existingSecret: false
     licenseSecret:
-      enabled: false
+      enabled: true
       file: # Specify the license file name with --set-file secret.license.licenseSecret.file="file_name" helm option
       fileContentsBase64: your_license_file_contents_in_base_64
       mountPath: /var/nexus-repo-license
@@ -400,10 +399,11 @@ nexus:
   # Customize or remove these values from the securityContext as appropriate for
   # your deployment environment.
   securityContext:
-    runAsUser: 200
+    runAsUser: null
   properties:
     override: false
-    data: null # specify a list of key and values to override default nexus.properties
+    data:
+      application-port: 8081
   extraLabels: {}
   extraSelectorLabels: {}
   docker:
@@ -443,7 +443,7 @@ dockerProxy:
   containerPort: 8082
 
   haproxy:
-    image: registry.access.redhat.com/rhel9/haproxy:latest
+    image: haproxy:2.8
     maxconn: 4096
     timeoutConnect: "60s"
     timeoutClient: "600s"
@@ -470,30 +470,33 @@ dockerProxy:
     #   Docker sends:  POST https://<host>/v2/myapp/blobs/uploads/
     #   HAProxy rewrites to: POST http://localhost:8081/repository/<repo>/v2/myapp/blobs/uploads/
     repos:
-      - name: dkr-4-test
-        host: dkr-4-test.apps.ocp-t-infra-01.swi.srse.net
-        repo: dkr-4-test
-      - name: dkr-4-prod
-        host: dkr-4-prod.apps.ocp-t-infra-01.swi.srse.net
-        repo: dkr-4-prod
-      - name: dkr-4-stage
-        host: dkr-4-stage.apps.ocp-t-infra-01.swi.srse.net
-        repo: dkr-4-stage
-      - name: dkr-4-dev
-        host: dkr-4-dev.apps.ocp-t-infra-01.swi.srse.net
-        repo: dkr-4-dev
-      - name: dkr-private
-        host: dkr-private.apps.ocp-t-infra-01.swi.srse.net
-        repo: dkr-private
       - name: dkr-public
-        host: dkr-public.apps.ocp-t-infra-01.swi.srse.net
+        host: docker.apps.ocp-t-infra-01.swi.srse.net
         repo: dkr-public
-      - name: dkr-release
-        host: dkr-release.apps.ocp-t-infra-01.swi.srse.net
-        repo: dkr-release
-      - name: dkr-snapshot
-        host: dkr-snapshot.apps.ocp-t-infra-01.swi.srse.net
-        repo: dkr-snapshot
+      - name: dkr-4-test
+        host: docker-private.apps.ocp-t-infra-01.swi.srse.net
+        repo: dkr-4-test
+      - name: dkr-4-production
+        host: docker-prod-private.apps.ocp-t-infra-01.swi.srse.net
+        repo: dkr-4-production
+      - name: dkr-prod-public
+        host: docker-prod.apps.ocp-t-infra-01.swi.srse.net
+        repo: dkr-prod-public
+      - name: dkr-test-public
+        host: docker-testenv.apps.ocp-t-infra-01.swi.srse.net
+        repo: dkr-test-public
+      - name: dkr-sunrise-common
+        host: docker-testenv-private.apps.ocp-t-infra-01.swi.srse.net
+        repo: dkr-sunrise-common
+      - name: mvn-public-releases
+        host: maven-repos.apps.ocp-t-infra-01.swi.srse.net
+        repo: mvn-public-releases
+      - name: dkr-nts-public
+        host: docker-nts.apps.ocp-t-infra-01.swi.srse.net
+        repo: dkr-nts-public
+      - name: docker-nts-private
+        host: dkr-nts-private.apps.ocp-t-infra-01.swi.srse.net
+        repo: docker-nts-private
 
     tls:
       enabled: true
@@ -536,4 +539,3 @@ nexusRoute:
 podDisruptionBudget:
   enabled: true
   minAvailable: 1
-
