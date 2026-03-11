@@ -60,7 +60,7 @@ This chart uses the OpenShift cluster's default wildcard domain (`*.apps.ocp-t-i
 | Route | Host | Cert Needed? |
 |---|---|---|
 | **Docker repos** | `dkr-4-test.apps.ocp-t-infra-01.swi.srse.net`, etc. | ❌ No (Cluster default cert covers it) |
-| **Primary UI** | `nexus-ui.nx-poc.apps.ocp-t-infra-01.swi.srse.net` | ❌ No (Cluster default cert covers it) |
+| **Primary UI** | `nexus-t01.apps.ocp-t-infra-01.swi.srse.net` | ❌ No (Cluster default cert covers it) |
 | **Additional UI** | `nexus-t01.sunrise.ch` | ✅ Yes (`nexus-t01` TLS cert required) |
 
 **Benefits:**
@@ -215,7 +215,7 @@ oc get routes -n nx-poc
 
 ```bash
 # Nexus Primary UI
-curl -v https://nexus-ui.nx-poc.apps.ocp-t-infra-01.swi.srse.net
+curl -v https://nexus-t01.apps.ocp-t-infra-01.swi.srse.net
 
 # Nexus Secondary UI
 curl -v https://nexus-t01.sunrise.ch
@@ -233,7 +233,7 @@ docker push dkr-4-test.apps.ocp-t-infra-01.swi.srse.net/test:v1
 
 ## Post-Installation: Nexus Repository Config
 
-1. Login to Nexus UI at `https://nexus-ui.nx-poc.apps.ocp-t-infra-01.swi.srse.net` or `https://nexus-t01.sunrise.ch`
+1. Login to Nexus UI at `https://nexus-t01.apps.ocp-t-infra-01.swi.srse.net` or `https://nexus-t01.sunrise.ch`
 2. Go to **Administration** → **Repository** → **Repositories**
 3. For each Docker hosted repo (`dkr-4-test`, `dkr-private`, etc.):
    - **HTTP connector**: leave **empty** (no port)
@@ -283,6 +283,6 @@ oc logs -f nexus-nxrm-ha-0 -n nx-poc -c nxrm-app | grep -i "uuid\|unknown blob"
 | `dockerProxy.route.repos[].host` | FQDN used by Docker clients | — |
 | `dockerProxy.route.repos[].repo` | Nexus repository name | — |
 | `nexusRoute.enabled` | Create Nexus primary UI Route | `true` |
-| `nexusRoute.host` | Primary UI hostname | `nexus-ui.nx-poc.apps.ocp-t-infra-01.swi.srse.net` |
+| `nexusRoute.host` | Primary UI hostname | `nexus-t01.apps.ocp-t-infra-01.swi.srse.net` |
 | `nexusRoute.additionalHosts[].host` | Additional UI hostnames | `nexus-t01.sunrise.ch` |
 | `podDisruptionBudget.enabled` | Create PDB | `true` |

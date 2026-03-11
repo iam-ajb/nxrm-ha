@@ -508,7 +508,7 @@ dockerProxy:
 # ─────────────────────────────────────────────────────────
 nexusRoute:
   enabled: true
-  host: nexus-ui.nx-poc.apps.ocp-t-infra-01.swi.srse.net    # OCP default domain — covered by cluster cert
+  host: nexus-t01.apps.ocp-t-infra-01.swi.srse.net    # OCP default domain — covered by cluster cert
   annotations:
     haproxy.router.openshift.io/timeout: "120s"
   tls:
