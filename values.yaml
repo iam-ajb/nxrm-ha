@@ -252,21 +252,17 @@ logStorage:
   tailSecondaryLogs: true
   combineTaskLogs: true
 storageClass:
-  enabled: false # For built-in storage class, set storageClass.enabled to false
-  name: nexus-storage # For built-in storage class, set storageClass.enabled to false and specify the name of the built-in storage class here e.g. managed-csi for AKS
-  provisioner: provisionerName # To use your own storage class set storageClass.enabled to true and specify provisioner. E.g. for AKS use managed-csi. For AWS EKS: ebs.csi.aws.com. In case of AWS EKS cluster running version less than 1.23 use 'kubernetes.io/aws-ebs'
+  enabled: false
+  name: isilon-fs-nfs-rwm-dc1
+  provisioner: provisionerName
   volumeBindingMode: "WaitForFirstConsumer"
   reclaimPolicy: Retain
-#  parameters:
-#    type: type
-#    fsType: "fsType" # e.g. ext4
-#    iopsPerGB: "10"
 pvc:
-  accessModes: ReadWriteOnce # Set to ReadWriteMany if using EFS/Azure Files/NFS for shared log storage
-  storage: 2Gi
+  accessModes: ReadWriteMany
+  storage: 200Gi
   volumeClaimTemplate:
     enabled: false
-  existingClaim: null
+  existingClaim: nfs-blob-pvc
 
 service: # Nexus Repo NodePort Service
   annotations: {}
