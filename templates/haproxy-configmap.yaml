@@ -44,9 +44,10 @@ data:
       # If all native ACL lookups failed, txn.repo is still undefined. Fallback to subdomain extraction:
       http-request set-var(txn.repo) var(txn.clean_host),field(1,'.') if !{ var(txn.repo) -m found }
 
-      # Set headers so Nexus generates https:// Location headers (fixes chunked push 500 error)
+      # Set headers so Nexus generates correct URLs
       http-request set-header X-Forwarded-Proto https
       http-request set-header X-Forwarded-Port 443
+      http-request set-header X-Forwarded-Host %[var(txn.clean_host)]
 
       # ─── URL Rewriting ───
       acl is_v2 path_reg ^/v2(/|$)
@@ -56,6 +57,10 @@ data:
       acl is_{{ .repo | replace "-" "_" }} var(txn.repo) -m str {{ .repo }}
       http-request set-path /repository/{{ .repo }}%[path] if is_{{ .repo | replace "-" "_" }} is_v2
       {{- end }}
+
+      # Normalize Host header to localhost so Nexus uses path-based routing
+      # (external hostname was already saved in txn.clean_host and X-Forwarded-Host)
+      http-request set-header Host localhost
 
       # Capture the FINAL rewritten path for the logs
       http-request set-var(txn.target_path) path
