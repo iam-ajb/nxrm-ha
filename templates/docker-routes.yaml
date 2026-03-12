@@ -1,11 +1,10 @@
 {{ if .Values.nexus.docker.enabled -}}
 {{ $root := . }}
-{{ range $registry := .Values.nexus.docker.registries -}}
----
+{{- range $registry := .Values.nexus.docker.registries }}
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: {{ include "nexus.fullname" $root | trunc 49 }}-docker-{{ $registry.repo }}
+  name: {{ include "nexus.fullname" $root | trunc 35 }}-dkr-{{ $registry.repo | trunc 20 }}
   namespace: {{ default $root.Release.Namespace $root.Values.namespaces.nexusNs.name | quote }}
   labels:
     {{- include "nexus.labels" $root | nindent 4 }}
@@ -26,5 +25,6 @@ spec:
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
+---
 {{- end }}
 {{- end }}
