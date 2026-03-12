@@ -25,14 +25,16 @@ data:
       timeout server   {{ .Values.dockerProxy.haproxy.timeoutServer }}
       timeout tunnel   {{ .Values.dockerProxy.haproxy.timeoutTunnel }}
 
+      # Custom log format to debug repository mapping
+      log-format "%ci:%cp [%tr] %ft %b/%s %TR/%Tw/%Tc/%Tr/%Ta %ST %B %CC %CS %tsc %ac/%fc/%bc/%sc/%rc %sq/%bq %hr %hs %{+Q}r repo:%[var(txn.repo)] host:%[var(txn.clean_host)]"
+
     frontend docker_frontend
       bind *:{{ .Values.dockerProxy.containerPort }}
 
       # ─── Resolve repo name from Host header ───
       # The Host header might include a port (e.g. `docker.domain.com:443`).
-      # 1. Strip the port using `regsub`
-      # 2. Iterate through Helm config and natively map hosts to repos
-      http-request set-var(txn.clean_host) req.hdr(Host),lower,regsub(:.*,,)
+      # Use `field(1,':')` to reliably strip any trailing port.
+      http-request set-var(txn.clean_host) req.hdr(Host),lower,field(1,':')
       
       {{- range .Values.dockerProxy.route.repos }}
       acl host_{{ .repo | replace "-" "_" }} var(txn.clean_host) -m str {{ .host }}
