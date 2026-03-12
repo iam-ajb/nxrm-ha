@@ -1,9 +1,6 @@
 {{ if .Values.nexus.docker.enabled -}}
 {{ $root := . }}
-{{ $repos := list 
-  "dkr-public" "dkr-4-test" "dkr-4-production" "dkr-prod-public" 
-  "dkr-test-public" "dkr-sunrise-common" "mvn-public-releases" 
-  "dkr-nts-public" "docker-nts-private" }}
+{{ $repos := list "dkr-public" "dkr-4-test" "dkr-4-production" "dkr-prod-public" "dkr-test-public" "dkr-sunrise-common" "mvn-public-releases" "dkr-nts-public" "docker-nts-private" }}
 
 {{ range $index, $registry := .Values.nexus.docker.registries }}
 {{ $repoName := index $repos $index }}
