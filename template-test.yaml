@@ -657,10 +657,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - 
+        - "docker"
       secretName: 
   rules:
-    - host: 
+    - host: docker
       http:
         paths:
           - path: /
@@ -687,10 +687,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - 
+        - "docker-private"
       secretName: 
   rules:
-    - host: 
+    - host: docker-private
       http:
         paths:
           - path: /
@@ -717,10 +717,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - 
+        - "docker-prod-private"
       secretName: 
   rules:
-    - host: 
+    - host: docker-prod-private
       http:
         paths:
           - path: /
@@ -747,10 +747,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - 
+        - "docker-prod"
       secretName: 
   rules:
-    - host: 
+    - host: docker-prod
       http:
         paths:
           - path: /
@@ -777,10 +777,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - 
+        - "docker-testenv"
       secretName: 
   rules:
-    - host: 
+    - host: docker-testenv
       http:
         paths:
           - path: /
@@ -807,10 +807,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - 
+        - "dkr-sunrise-common"
       secretName: 
   rules:
-    - host: 
+    - host: dkr-sunrise-common
       http:
         paths:
           - path: /
@@ -837,10 +837,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - 
+        - "maven-repos"
       secretName: 
   rules:
-    - host: 
+    - host: maven-repos
       http:
         paths:
           - path: /
@@ -867,10 +867,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - 
+        - "docker-nts"
       secretName: 
   rules:
-    - host: 
+    - host: docker-nts
       http:
         paths:
           - path: /
@@ -897,10 +897,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - 
+        - "dkr-nts-private"
       secretName: 
   rules:
-    - host: 
+    - host: dkr-nts-private
       http:
         paths:
           - path: /
@@ -927,10 +927,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - 
+        - "docker9"
       secretName: 
   rules:
-    - host: 
+    - host: docker9
       http:
         paths:
           - path: /
@@ -957,10 +957,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - 
+        - "docker10"
       secretName: 
   rules:
-    - host: 
+    - host: docker10
       http:
         paths:
           - path: /
@@ -992,7 +992,7 @@ metadata:
     haproxy.router.openshift.io/timeout-tunnel: "3600s"
     haproxy.router.openshift.io/disable_cookies: "true"
 spec:
-  # Hostname pattern format matching original HAProxy map
+  # Hostname is now generated from the 'host' property in values.yaml
   host: docker.apps.ocp-t-infra-01.swi.srse.net
   to:
     kind: Service
@@ -1002,9 +1002,7 @@ spec:
     targetPort: docker-5000
   tls:
     termination: edge
-    insecureEdgeTerminationPolicy: Redirect
----
-# Source: nxrm-ha/templates/docker-routes.yaml
+    insecureEdgeTerminationPolicy: Redirect---
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
@@ -1022,7 +1020,7 @@ metadata:
     haproxy.router.openshift.io/timeout-tunnel: "3600s"
     haproxy.router.openshift.io/disable_cookies: "true"
 spec:
-  # Hostname pattern format matching original HAProxy map
+  # Hostname is now generated from the 'host' property in values.yaml
   host: docker-private.apps.ocp-t-infra-01.swi.srse.net
   to:
     kind: Service
@@ -1032,9 +1030,7 @@ spec:
     targetPort: docker-5001
   tls:
     termination: edge
-    insecureEdgeTerminationPolicy: Redirect
----
-# Source: nxrm-ha/templates/docker-routes.yaml
+    insecureEdgeTerminationPolicy: Redirect---
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
@@ -1052,7 +1048,7 @@ metadata:
     haproxy.router.openshift.io/timeout-tunnel: "3600s"
     haproxy.router.openshift.io/disable_cookies: "true"
 spec:
-  # Hostname pattern format matching original HAProxy map
+  # Hostname is now generated from the 'host' property in values.yaml
   host: docker-prod-private.apps.ocp-t-infra-01.swi.srse.net
   to:
     kind: Service
@@ -1062,9 +1058,7 @@ spec:
     targetPort: docker-5002
   tls:
     termination: edge
-    insecureEdgeTerminationPolicy: Redirect
----
-# Source: nxrm-ha/templates/docker-routes.yaml
+    insecureEdgeTerminationPolicy: Redirect---
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
@@ -1082,7 +1076,7 @@ metadata:
     haproxy.router.openshift.io/timeout-tunnel: "3600s"
     haproxy.router.openshift.io/disable_cookies: "true"
 spec:
-  # Hostname pattern format matching original HAProxy map
+  # Hostname is now generated from the 'host' property in values.yaml
   host: docker-prod.apps.ocp-t-infra-01.swi.srse.net
   to:
     kind: Service
@@ -1092,9 +1086,7 @@ spec:
     targetPort: docker-5003
   tls:
     termination: edge
-    insecureEdgeTerminationPolicy: Redirect
----
-# Source: nxrm-ha/templates/docker-routes.yaml
+    insecureEdgeTerminationPolicy: Redirect---
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
@@ -1112,7 +1104,7 @@ metadata:
     haproxy.router.openshift.io/timeout-tunnel: "3600s"
     haproxy.router.openshift.io/disable_cookies: "true"
 spec:
-  # Hostname pattern format matching original HAProxy map
+  # Hostname is now generated from the 'host' property in values.yaml
   host: docker-testenv.apps.ocp-t-infra-01.swi.srse.net
   to:
     kind: Service
@@ -1122,9 +1114,7 @@ spec:
     targetPort: docker-5004
   tls:
     termination: edge
-    insecureEdgeTerminationPolicy: Redirect
----
-# Source: nxrm-ha/templates/docker-routes.yaml
+    insecureEdgeTerminationPolicy: Redirect---
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
@@ -1142,7 +1132,7 @@ metadata:
     haproxy.router.openshift.io/timeout-tunnel: "3600s"
     haproxy.router.openshift.io/disable_cookies: "true"
 spec:
-  # Hostname pattern format matching original HAProxy map
+  # Hostname is now generated from the 'host' property in values.yaml
   host: dkr-sunrise-common.apps.ocp-t-infra-01.swi.srse.net
   to:
     kind: Service
@@ -1152,9 +1142,7 @@ spec:
     targetPort: docker-5005
   tls:
     termination: edge
-    insecureEdgeTerminationPolicy: Redirect
----
-# Source: nxrm-ha/templates/docker-routes.yaml
+    insecureEdgeTerminationPolicy: Redirect---
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
@@ -1172,8 +1160,8 @@ metadata:
     haproxy.router.openshift.io/timeout-tunnel: "3600s"
     haproxy.router.openshift.io/disable_cookies: "true"
 spec:
-  # Hostname pattern format matching original HAProxy map
-  host: mvn-public-releases.apps.ocp-t-infra-01.swi.srse.net
+  # Hostname is now generated from the 'host' property in values.yaml
+  host: maven-repos.apps.ocp-t-infra-01.swi.srse.net
   to:
     kind: Service
     name: nxrm-ha-docker-5006
@@ -1182,9 +1170,7 @@ spec:
     targetPort: docker-5006
   tls:
     termination: edge
-    insecureEdgeTerminationPolicy: Redirect
----
-# Source: nxrm-ha/templates/docker-routes.yaml
+    insecureEdgeTerminationPolicy: Redirect---
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
@@ -1202,8 +1188,8 @@ metadata:
     haproxy.router.openshift.io/timeout-tunnel: "3600s"
     haproxy.router.openshift.io/disable_cookies: "true"
 spec:
-  # Hostname pattern format matching original HAProxy map
-  host: dkr-nts-public.apps.ocp-t-infra-01.swi.srse.net
+  # Hostname is now generated from the 'host' property in values.yaml
+  host: docker-nts.apps.ocp-t-infra-01.swi.srse.net
   to:
     kind: Service
     name: nxrm-ha-docker-5007
@@ -1212,9 +1198,7 @@ spec:
     targetPort: docker-5007
   tls:
     termination: edge
-    insecureEdgeTerminationPolicy: Redirect
----
-# Source: nxrm-ha/templates/docker-routes.yaml
+    insecureEdgeTerminationPolicy: Redirect---
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
@@ -1232,14 +1216,70 @@ metadata:
     haproxy.router.openshift.io/timeout-tunnel: "3600s"
     haproxy.router.openshift.io/disable_cookies: "true"
 spec:
-  # Hostname pattern format matching original HAProxy map
-  host: docker-nts-private.apps.ocp-t-infra-01.swi.srse.net
+  # Hostname is now generated from the 'host' property in values.yaml
+  host: dkr-nts-private.apps.ocp-t-infra-01.swi.srse.net
   to:
     kind: Service
     name: nxrm-ha-docker-5008
     weight: 100
   port:
     targetPort: docker-5008
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: nxrm-ha-docker-dkr-9-unused
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    haproxy.router.openshift.io/balance: "source"
+    haproxy.router.openshift.io/timeout: "600s"
+    haproxy.router.openshift.io/timeout-tunnel: "3600s"
+    haproxy.router.openshift.io/disable_cookies: "true"
+spec:
+  # Hostname is now generated from the 'host' property in values.yaml
+  host: docker9.apps.ocp-t-infra-01.swi.srse.net
+  to:
+    kind: Service
+    name: nxrm-ha-docker-5009
+    weight: 100
+  port:
+    targetPort: docker-5009
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: nxrm-ha-docker-dkr-10-unused
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    haproxy.router.openshift.io/balance: "source"
+    haproxy.router.openshift.io/timeout: "600s"
+    haproxy.router.openshift.io/timeout-tunnel: "3600s"
+    haproxy.router.openshift.io/disable_cookies: "true"
+spec:
+  # Hostname is now generated from the 'host' property in values.yaml
+  host: docker10.apps.ocp-t-infra-01.swi.srse.net
+  to:
+    kind: Service
+    name: nxrm-ha-docker-5010
+    weight: 100
+  port:
+    targetPort: docker-5010
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect

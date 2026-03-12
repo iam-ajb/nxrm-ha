@@ -1,15 +1,11 @@
 {{ if .Values.nexus.docker.enabled -}}
 {{ $root := . }}
-{{ $repos := list "dkr-public" "dkr-4-test" "dkr-4-production" "dkr-prod-public" "dkr-test-public" "dkr-sunrise-common" "mvn-public-releases" "dkr-nts-public" "docker-nts-private" }}
-
-{{ range $index, $registry := .Values.nexus.docker.registries }}
-{{ if lt $index (len $repos) }}
-{{ $repoName := index $repos $index }}
+{{ range $registry := .Values.nexus.docker.registries -}}
 ---
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: {{ include "nexus.fullname" $root | trunc 49 }}-docker-{{ $repoName }}
+  name: {{ include "nexus.fullname" $root | trunc 49 }}-docker-{{ $registry.repo }}
   namespace: {{ default $root.Release.Namespace $root.Values.namespaces.nexusNs.name | quote }}
   labels:
     {{- include "nexus.labels" $root | nindent 4 }}
@@ -19,8 +15,8 @@ metadata:
     haproxy.router.openshift.io/timeout-tunnel: "3600s"
     haproxy.router.openshift.io/disable_cookies: "true"
 spec:
-  # Hostname pattern format matching original HAProxy map
-  host: {{ if eq $repoName "dkr-public" }}docker{{ else if eq $repoName "dkr-4-test" }}docker-private{{ else if eq $repoName "dkr-4-production" }}docker-prod-private{{ else if eq $repoName "dkr-prod-public" }}docker-prod{{ else if eq $repoName "dkr-test-public" }}docker-testenv{{ else }}{{ $repoName }}{{ end }}.apps.ocp-t-infra-01.swi.srse.net
+  # Hostname is now generated from the 'host' property in values.yaml
+  host: {{ $registry.host }}.apps.ocp-t-infra-01.swi.srse.net
   to:
     kind: Service
     name: {{ include "nexus.fullname" $root | trunc 49 }}-docker-{{ $registry.port }}
@@ -30,6 +26,5 @@ spec:
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
-{{ end }}
-{{ end }}
+{{- end }}
 {{- end }}

@@ -376,16 +376,38 @@ nexus:
     protocol: TCP
     registries:
       - port: 5000
+        repo: dkr-public
+        host: docker
       - port: 5001
+        repo: dkr-4-test
+        host: docker-private
       - port: 5002
+        repo: dkr-4-production
+        host: docker-prod-private
       - port: 5003
+        repo: dkr-prod-public
+        host: docker-prod
       - port: 5004
+        repo: dkr-test-public
+        host: docker-testenv
       - port: 5005
+        repo: dkr-sunrise-common
+        host: dkr-sunrise-common
       - port: 5006
+        repo: mvn-public-releases
+        host: maven-repos
       - port: 5007
+        repo: dkr-nts-public
+        host: docker-nts
       - port: 5008
+        repo: docker-nts-private
+        host: dkr-nts-private
       - port: 5009
+        repo: dkr-9-unused
+        host: docker9
       - port: 5010
+        repo: dkr-10-unused
+        host: docker10
 
 # Enable configmap and add arbitrary data in configmap
 config:
