@@ -65,6 +65,7 @@ data:
 
       # 4. Perform final rewrite by prepending the identified Nexus repository context
       {{- range .Values.dockerProxy.route.repos }}
+      acl is_{{ .repo | replace "-" "_" }} var(txn.repo) -m str {{ .repo }}
       http-request set-path /repository/{{ .repo }}%[var(txn.target_path)] if is_{{ .repo | replace "-" "_" }} is_v2
       {{- end }}
 
