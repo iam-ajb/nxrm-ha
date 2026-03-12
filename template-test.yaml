@@ -77,6 +77,23 @@ type: Opaque
 stringData:
   nexus-admin-password: yourinitialnexuspassword
 ---
+# Source: nxrm-ha/templates/configmap-properties.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: "nx-poc"
+  name: nxrm-ha-properties
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+data:
+  nexus.properties: |
+    application-port=8081
+    nexus.scripts.allowCreation=true
+---
 # Source: nxrm-ha/templates/nxrm-logback-tasklogfile-override.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -406,6 +423,7 @@ spec:
   template:
     metadata:
       annotations:
+        checksum/configmap-properties: de5c8e5ce8efe82c5a9a8bfe3051bb0025167e28e94d9d955dc226f80106bb62
       labels:
         app.kubernetes.io/name: nxrm-ha
         app.kubernetes.io/instance: nxrm-ha
@@ -550,6 +568,9 @@ spec:
               mountPath: /nexus-data/etc/logback/logback-tasklogfile-appender-override.xml
               subPath: logback-tasklogfile-appender-override.xml
           
+            - mountPath: /nexus-data/etc/nexus.properties
+              name: nxrm-ha-properties
+              subPath: nexus.properties
         - name: request-log
           image: busybox:1.33.1
           args: [/bin/sh, -c, 'tail -n+1 -F /nexus-data/log/request.log']
@@ -595,6 +616,12 @@ spec:
         
         
       volumes:
+        - name: nxrm-ha-properties
+          configMap:
+            name: nxrm-ha-properties
+            items:
+            - key: nexus.properties
+              path: nexus.properties
         - name: nxrm-secrets
           secret:
             secretName: nxrm-ha-dbsecret
