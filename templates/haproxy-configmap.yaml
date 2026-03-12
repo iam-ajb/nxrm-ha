@@ -25,11 +25,11 @@ data:
       timeout server   {{ .Values.dockerProxy.haproxy.timeoutServer }}
       timeout tunnel   {{ .Values.dockerProxy.haproxy.timeoutTunnel }}
 
-      # Custom log format to debug repository mapping
-      log-format "%ci:%cp [%tr] %ft %b/%s %TR/%Tw/%Tc/%Tr/%Ta %ST %B %CC %CS %tsc %ac/%fc/%bc/%sc/%rc %sq/%bq %hr %hs %{+Q}r repo:%[var(txn.repo)] host:%[var(txn.clean_host)] path:%[path]"
-
     frontend docker_frontend
       bind *:{{ .Values.dockerProxy.containerPort }}
+
+      # Custom log format to debug repository mapping (moved from defaults as %[path] requires HTTP context)
+      log-format "%ci:%cp [%tr] %ft %b/%s %TR/%Tw/%Tc/%Tr/%Ta %ST %B %CC %CS %tsc %ac/%fc/%bc/%sc/%rc %sq/%bq %hr %hs %{+Q}r repo:%[var(txn.repo)] host:%[var(txn.clean_host)] path:%[path]"
 
       # ─── Resolve repo name from Host header ───
       # The Host header might include a port (e.g. `docker.domain.com:443`).
