@@ -29,7 +29,7 @@ data:
       bind *:{{ .Values.dockerProxy.containerPort }}
 
       # Safe diagnostic log format (using %[var] strings which are always available)
-      log-format "%ci:%cp [%tr] %ft %b/%s %TR/%Tw/%Tc/%Tr/%Ta %ST %B %r repo:%[var(txn.repo)] host:%[var(txn.clean_host)]"
+      log-format "%ci:%cp [%tr] %ft %b/%s %TR/%Tw/%Tc/%Tr/%Ta %ST %B %r repo:%[var(txn.repo)] target:%[var(txn.target_path)]"
 
       # ─── Resolve repo name from Host header ───
       # The Host header might include a port (e.g. `docker.domain.com:443`).
@@ -53,23 +53,14 @@ data:
       acl repo_found var(txn.repo) -m found
       acl repo_not_empty var(txn.repo) -m str "" -n
 
-      # 1. Identify Docker V2 requests
-      acl is_v2 path_reg ^/v2(/|$)
-      
-      # 2. Capture the path into a variable for safe manipulation
-      http-request set-var(txn.target_path) path if is_v2
-
-      # 3. Identify official images (single-part name like 'busybox') 
-      # and ensure they have 'library/' prefix for Hub proxies.
-      acl is_single_part_image path -m reg ^/v2/[^/]+/(manifests|blobs|tags|referrers)/
-      acl starts_with_library path -i -m beg /v2/library/
-      http-request set-var(txn.target_path) var(txn.target_path),regsub(^/v2/,/v2/library/) if is_single_part_image !starts_with_library
-
-      # 4. Perform final rewrite by prepending the identified Nexus repository context
+      # Clean, explicit mapping rule
       {{- range .Values.dockerProxy.route.repos }}
       acl is_{{ .repo | replace "-" "_" }} var(txn.repo) -m str {{ .repo }}
-      http-request set-path /repository/{{ .repo }}%[var(txn.target_path)] if is_{{ .repo | replace "-" "_" }} is_v2
+      http-request set-path /repository/{{ .repo }}%[path] if is_{{ .repo | replace "-" "_" }} is_v2
       {{- end }}
+
+      # Capture the FINAL path for the logs (shows exactly what was sent to Nexus)
+      http-request set-var(txn.target_path) path
 
 
       # Requests with /repository/ prefix (from Nexus Location headers) pass through
