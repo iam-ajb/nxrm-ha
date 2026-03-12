@@ -26,7 +26,7 @@ data:
       timeout tunnel   {{ .Values.dockerProxy.haproxy.timeoutTunnel }}
 
       # Custom log format to debug repository mapping
-      log-format "%ci:%cp [%tr] %ft %b/%s %TR/%Tw/%Tc/%Tr/%Ta %ST %B %CC %CS %tsc %ac/%fc/%bc/%sc/%rc %sq/%bq %hr %hs %{+Q}r repo:%[var(txn.repo)] host:%[var(txn.clean_host)]"
+      log-format "%ci:%cp [%tr] %ft %b/%s %TR/%Tw/%Tc/%Tr/%Ta %ST %B %CC %CS %tsc %ac/%fc/%bc/%sc/%rc %sq/%bq %hr %hs %{+Q}r repo:%[var(txn.repo)] host:%[var(txn.clean_host)] path:%[path]"
 
     frontend docker_frontend
       bind *:{{ .Values.dockerProxy.containerPort }}
@@ -53,13 +53,18 @@ data:
       acl repo_found var(txn.repo) -m found
       acl repo_not_empty var(txn.repo) -m str "" -n
 
-      # Docker V2 API: /v2/... → /repository/<repo>/v2/... (with library/ stripping)
-      # This rule handles:
-      # 1. /v2/ -> /repository/<repo>/v2/
-      # 2. /v2/image -> /repository/<repo>/v2/image
-      # 3. /v2/library/image -> /repository/<repo>/v2/image (strips Docker's auto-library prefix)
+      # 1. Detect Docker V2 requests
       acl is_v2 path_reg ^/v2(/|$)
-      http-request set-path /repository/%[var(txn.repo)]%[path,regsub(^/v2/library/,/v2/)] if is_v2 repo_found repo_not_empty
+      acl is_v2_library path -i -m beg /v2/library/
+
+      # 2. Decompose path transformation for reliability
+      http-request set-var(txn.target_path) path if is_v2
+      
+      # 3. Strip Docker's auto-injected 'library/' if present
+      http-request set-var(txn.target_path) var(txn.target_path),regsub(^/v2/library/,/v2/) if is_v2_library
+      
+      # 4. Final Rewrite: Prepend the Nexus repository context
+      http-request set-path /repository/%[var(txn.repo)]%[var(txn.target_path)] if is_v2 repo_found repo_not_empty
 
       # Requests with /repository/ prefix (from Nexus Location headers) pass through
 
