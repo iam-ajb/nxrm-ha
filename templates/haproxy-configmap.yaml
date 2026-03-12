@@ -96,10 +96,6 @@ data:
       # Fallback for /repository/<repo> (just in case Nexus leaks its internal path)
       http-response replace-header Location ^(?:http://|https://)([^/]+)/repository/[^/]+/v2/(.*)$ https://\1/v2/\2
 
-      # ─── Debug Headers (Remove when fixed) ───
-      http-response set-header X-Debug-Mapped-Repo %[var(txn.repo)]
-      http-response set-header X-Debug-Target-Path %[path]
-
       default_backend nexus_cluster
 
     resolvers k8s
