@@ -55,13 +55,15 @@ data:
 
       # 1. Identify Docker V2 requests
       acl is_v2 path_reg ^/v2(/|$)
-      acl is_v2_library path -i -m beg /v2/library/
-
+      
       # 2. Capture the path into a variable for safe manipulation
       http-request set-var(txn.target_path) path if is_v2
 
-      # 3. If image belongs to 'library' namespace, strip it (replaces /v2/library/ with /v2/)
-      http-request set-var(txn.target_path) var(txn.target_path),regsub(^/v2/library/,/v2/) if is_v2_library
+      # 3. Identify official images (single-part name like 'busybox') 
+      # and ensure they have 'library/' prefix for Hub proxies.
+      acl is_single_part_image path -m reg ^/v2/[^/]+/(manifests|blobs|tags|referrers)/
+      acl starts_with_library path -i -m beg /v2/library/
+      http-request set-var(txn.target_path) var(txn.target_path),regsub(^/v2/,/v2/library/) if is_single_part_image !starts_with_library
 
       # 4. Perform final rewrite by prepending the identified Nexus repository context
       {{- range .Values.dockerProxy.route.repos }}
