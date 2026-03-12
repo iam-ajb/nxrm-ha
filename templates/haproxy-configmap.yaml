@@ -49,17 +49,15 @@ data:
       http-request set-header X-Forwarded-Port 443
 
       # ─── URL Rewriting ───
-      # Only perform rewriting if a valid repository was identified
-      acl repo_found var(txn.repo) -m found
-      acl repo_not_empty var(txn.repo) -m str "" -n
+      acl is_v2 path_reg ^/v2(/|$)
 
-      # Clean, explicit mapping rule
+      # Rewrite: prepend /repository/<repo> to the Docker V2 path
       {{- range .Values.dockerProxy.route.repos }}
       acl is_{{ .repo | replace "-" "_" }} var(txn.repo) -m str {{ .repo }}
       http-request set-path /repository/{{ .repo }}%[path] if is_{{ .repo | replace "-" "_" }} is_v2
       {{- end }}
 
-      # Capture the FINAL path for the logs (shows exactly what was sent to Nexus)
+      # Capture the FINAL rewritten path for the logs
       http-request set-var(txn.target_path) path
 
 
