@@ -32,11 +32,11 @@ spec:
 {{- end }}
 ---
 {{ if .Values.nexus.docker.enabled -}}
-{{ range $registry := .Values.nexus.docker.registries }}
+---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "nexus.fullname" $ | trunc 49 }}-docker-{{ $registry.port }}
+  name: {{ include "nexus.fullname" $ | trunc 54 }}-docker
   namespace: {{ default $.Release.Namespace $.Values.namespaces.nexusNs.name | quote }}
   {{- if $.Values.service.annotations }}
   annotations:
@@ -59,10 +59,10 @@ spec:
       {{- end }}
     {{- end }}
   ports:
+    {{- range $registry := .Values.nexus.docker.registries }}
     - name: docker-{{ $registry.port }}
       protocol: {{ $.Values.nexus.docker.protocol }}
       port: {{ $registry.port }}
-      targetPort: {{ $registry.targetPort }}
----
-{{ end }}
+      targetPort: docker-{{ $registry.port }}
+    {{- end }}
 {{- end }}
