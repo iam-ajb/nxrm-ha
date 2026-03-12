@@ -1,0 +1,1272 @@
+---
+# Source: nxrm-ha/templates/namespaces.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: "nx-poc"
+---
+# Source: nxrm-ha/templates/pdb.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: nxrm-ha-pdb
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nxrm-ha
+      app.kubernetes.io/instance: nxrm-ha
+---
+# Source: nxrm-ha/templates/database-secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nxrm-ha-dbsecret
+  namespace: "nx-poc"
+  labels:
+
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+type: Opaque
+stringData:
+  db-host: 10.129.13.105
+  db-user: nexus
+  db-password: Postgress@32!
+---
+# Source: nxrm-ha/templates/license-config-mapping.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nexus-repo-license.lic
+  namespace: "nx-poc"
+  labels:
+
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+type: Opaque  
+data:
+  nexus-repo-license.lic: |-
+    your_license_file_contents_in_base_64
+---
+# Source: nxrm-ha/templates/nexus-admin-secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nxrm-ha-adminsecret
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+type: Opaque
+stringData:
+  nexus-admin-password: yourinitialnexuspassword
+---
+# Source: nxrm-ha/templates/nxrm-logback-tasklogfile-override.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nxrm-ha-logback-tasklogfile-override
+  namespace: nx-poc
+data:
+  logback-tasklogfile-appender-override.xml: |
+    <included>
+      <!-- Additional appender for combined task logs (k8s ingestion) -->
+      <appender name="tasklogfile-aggregated" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <File>${karaf.data}/log/tasks/allTasks.log</File>
+        <filter class="org.sonatype.nexus.logging.TaskLogsFilter" />
+        <Append>true</Append>
+        <encoder class="org.sonatype.nexus.logging.NexusLayoutEncoder">
+          <pattern>%d{"yyyy-MM-dd HH:mm:ss,SSSZ"} %-5p [%thread] %node %mdc{userId:-*SYSTEM} %c - %m%n</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+          <fileNamePattern>${karaf.data}/log/tasks/allTasks-%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+          <maxHistory>1</maxHistory>
+        </rollingPolicy>
+      </appender>
+      <root>
+        <appender-ref ref="tasklogfile-aggregated" />
+      </root>
+    </included>
+---
+# Source: nxrm-ha/templates/service-headless.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nxrm-ha-hl
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+  ports:
+    - name: nexus-ui
+      port: 8081
+      targetPort: nexus-ui
+---
+# Source: nxrm-ha/templates/services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nxrm-ha-docker-5000
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+  ports:
+    - name: docker-5000
+      protocol: TCP
+      port: 5000
+      targetPort:
+---
+# Source: nxrm-ha/templates/services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nxrm-ha-docker-5001
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+  ports:
+    - name: docker-5001
+      protocol: TCP
+      port: 5001
+      targetPort:
+---
+# Source: nxrm-ha/templates/services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nxrm-ha-docker-5002
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+  ports:
+    - name: docker-5002
+      protocol: TCP
+      port: 5002
+      targetPort:
+---
+# Source: nxrm-ha/templates/services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nxrm-ha-docker-5003
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+  ports:
+    - name: docker-5003
+      protocol: TCP
+      port: 5003
+      targetPort:
+---
+# Source: nxrm-ha/templates/services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nxrm-ha-docker-5004
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+  ports:
+    - name: docker-5004
+      protocol: TCP
+      port: 5004
+      targetPort:
+---
+# Source: nxrm-ha/templates/services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nxrm-ha-docker-5005
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+  ports:
+    - name: docker-5005
+      protocol: TCP
+      port: 5005
+      targetPort:
+---
+# Source: nxrm-ha/templates/services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nxrm-ha-docker-5006
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+  ports:
+    - name: docker-5006
+      protocol: TCP
+      port: 5006
+      targetPort:
+---
+# Source: nxrm-ha/templates/services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nxrm-ha-docker-5007
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+  ports:
+    - name: docker-5007
+      protocol: TCP
+      port: 5007
+      targetPort:
+---
+# Source: nxrm-ha/templates/services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nxrm-ha-docker-5008
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+  ports:
+    - name: docker-5008
+      protocol: TCP
+      port: 5008
+      targetPort:
+---
+# Source: nxrm-ha/templates/services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nxrm-ha-docker-5009
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+  ports:
+    - name: docker-5009
+      protocol: TCP
+      port: 5009
+      targetPort:
+---
+# Source: nxrm-ha/templates/services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nxrm-ha-docker-5010
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+  ports:
+    - name: docker-5010
+      protocol: TCP
+      port: 5010
+      targetPort:
+---
+# Source: nxrm-ha/templates/statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nxrm-ha
+  namespace: "nx-poc"
+  labels:
+
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 2
+  
+  updateStrategy:
+    type: OnDelete
+  serviceName: nxrm-ha-hl
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nxrm-ha
+      app.kubernetes.io/instance: nxrm-ha
+  template:
+    metadata:
+      annotations:
+      labels:
+        app.kubernetes.io/name: nxrm-ha
+        app.kubernetes.io/instance: nxrm-ha
+    spec:
+      terminationGracePeriodSeconds: 120
+      initContainers:
+        
+        - args:
+          - -c
+          - mkdir -p /nexus-data/etc/logback && mkdir -p /nexus-data/log/tasks && mkdir -p
+            /nexus-data/log/audit && touch -a /nexus-data/log/tasks/allTasks.log && touch
+            -a /nexus-data/log/audit/audit.log && touch -a /nexus-data/log/request.log &&
+            touch -a /nexus-data/etc/logback/logback-tasklogfile-appender-override.xml &&
+            touch -a /nexus-data/etc/nexus.properties
+          command:
+          - /bin/sh
+          image: busybox:1.33.1
+          name: chown-nexusdata-owner-to-nexus-and-init-log-dir
+          resources:
+            limits:
+              cpu: "0.2"
+              memory: 512Mi
+            requests:
+              cpu: "0.1"
+              memory: 256Mi
+          volumeMounts:
+          - mountPath: /nexus-data
+            name: nexus-data
+      containers:
+        - name: nxrm-app
+          image: sonatype/nexus3:3.90.1
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            
+            runAsUser: null
+          lifecycle:
+          ports:
+            - name: nexus-ui
+              containerPort: 8081
+            - name: docker-5000
+              containerPort: 5000
+            - name: docker-5001
+              containerPort: 5001
+            - name: docker-5002
+              containerPort: 5002
+            - name: docker-5003
+              containerPort: 5003
+            - name: docker-5004
+              containerPort: 5004
+            - name: docker-5005
+              containerPort: 5005
+            - name: docker-5006
+              containerPort: 5006
+            - name: docker-5007
+              containerPort: 5007
+            - name: docker-5008
+              containerPort: 5008
+            - name: docker-5009
+              containerPort: 5009
+            - name: docker-5010
+              containerPort: 5010
+          resources:
+            
+            limits:
+              cpu: 2
+              memory: 4Gi
+            requests:
+              cpu: 500m
+              memory: 2Gi
+          startupProbe:
+            httpGet:
+              path: /service/rest/v1/status
+              port: 8081
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 1
+            failureThreshold: 180
+          livenessProbe:
+            httpGet:
+              path: /service/rest/v1/status
+              port: 8081
+            initialDelaySeconds: 0
+            periodSeconds: 60
+            timeoutSeconds: 1
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /service/rest/v1/status
+              port: 8081
+            initialDelaySeconds: 0
+            periodSeconds: 60
+            timeoutSeconds: 1
+            failureThreshold: 6
+          env:
+            - name: DB_NAME
+              value: "nexus"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nxrm-ha-dbsecret
+                  key: db-password
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: nxrm-ha-dbsecret
+                  key: db-user
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: nxrm-ha-dbsecret
+                  key: db-host
+          
+            - name: NEXUS_SECURITY_INITIAL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nxrm-ha-adminsecret
+                  key: nexus-admin-password
+            - name: NEXUS_SECURITY_RANDOMPASSWORD
+              value: "false"
+            - name: NEXUS_ZERO_DOWNTIME_ENABLED
+              value: "false"
+            - name: LICENSE_FILE
+              value: /var/nexus-repo-license/nexus-repo-license.lic
+          
+            - name: INSTALL4J_ADD_VM_PARAMS
+              value: "-Xms2703m -Xmx2703m -Dnexus.licenseFile=${LICENSE_FILE} \
+          -Dnexus.datastore.clustered.enabled=true -Djava.util.prefs.userRoot=${NEXUS_DATA}/javaprefs \
+          -Dnexus.datastore.nexus.jdbcUrl=jdbc:postgresql://${DB_HOST}:5432/${DB_NAME} \
+          -Dnexus.datastore.nexus.username=${DB_USER} \
+          -Dnexus.datastore.nexus.password=${DB_PASSWORD}"
+          
+          volumeMounts:
+            - name: nxrm-secrets
+              mountPath: /nxrm-secrets
+            - name: license-volume
+              mountPath: /var/nexus-repo-license
+              readOnly: true
+          
+            - name: nexus-data
+              mountPath: /nexus-data
+            - name: logback-tasklogfile-override
+              mountPath: /nexus-data/etc/logback/logback-tasklogfile-appender-override.xml
+              subPath: logback-tasklogfile-appender-override.xml
+          
+        - name: request-log
+          image: busybox:1.33.1
+          args: [/bin/sh, -c, 'tail -n+1 -F /nexus-data/log/request.log']
+          volumeMounts:
+            - name: nexus-data
+              mountPath: /nexus-data
+          resources:
+            
+            limits:
+              cpu: "0.2"
+              memory: 512Mi
+            requests:
+              cpu: "0.1"
+              memory: 256Mi
+        - name: audit-log
+          image: busybox:1.33.1
+          args: [/bin/sh, -c, 'tail -n+1 -F /nexus-data/log/audit/audit.log']
+          volumeMounts:
+            - name: nexus-data
+              mountPath: /nexus-data
+          resources:
+            
+            limits:
+              cpu: "0.2"
+              memory: 512Mi
+            requests:
+              cpu: "0.1"
+              memory: 256Mi
+        - name: tasks-log
+          image: busybox:1.33.1
+          args: [/bin/sh, -c, 'tail -n+1 -F /nexus-data/log/tasks/allTasks.log']
+          volumeMounts:
+            - name: nexus-data
+              mountPath: /nexus-data
+          resources:
+            
+            limits:
+              cpu: "0.2"
+              memory: 512Mi
+            requests:
+              cpu: "0.1"
+              memory: 256Mi
+        
+        
+      volumes:
+        - name: nxrm-secrets
+          secret:
+            secretName: nxrm-ha-dbsecret
+        
+      
+        - name: license-volume
+          secret:
+            secretName: nexus-repo-license.lic
+      
+        - name: logback-tasklogfile-override
+          configMap:
+            name: nxrm-ha-logback-tasklogfile-override
+            items:
+              - key: logback-tasklogfile-appender-override.xml
+                path: logback-tasklogfile-appender-override.xml
+      
+        - name: nexus-data
+          persistentVolumeClaim:
+            claimName: nfs-blob-pvc
+---
+# Source: nxrm-ha/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: "nx-poc"
+  name: nxrm-ha-docker-5000
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  tls:
+    - hosts:
+        - 
+      secretName: 
+  rules:
+    - host: 
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nxrm-ha-docker-5000
+                port:
+                  number: 5000
+---
+# Source: nxrm-ha/templates/ingress.yaml
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: "nx-poc"
+  name: nxrm-ha-docker-5001
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  tls:
+    - hosts:
+        - 
+      secretName: 
+  rules:
+    - host: 
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nxrm-ha-docker-5001
+                port:
+                  number: 5001
+---
+# Source: nxrm-ha/templates/ingress.yaml
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: "nx-poc"
+  name: nxrm-ha-docker-5002
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  tls:
+    - hosts:
+        - 
+      secretName: 
+  rules:
+    - host: 
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nxrm-ha-docker-5002
+                port:
+                  number: 5002
+---
+# Source: nxrm-ha/templates/ingress.yaml
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: "nx-poc"
+  name: nxrm-ha-docker-5003
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  tls:
+    - hosts:
+        - 
+      secretName: 
+  rules:
+    - host: 
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nxrm-ha-docker-5003
+                port:
+                  number: 5003
+---
+# Source: nxrm-ha/templates/ingress.yaml
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: "nx-poc"
+  name: nxrm-ha-docker-5004
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  tls:
+    - hosts:
+        - 
+      secretName: 
+  rules:
+    - host: 
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nxrm-ha-docker-5004
+                port:
+                  number: 5004
+---
+# Source: nxrm-ha/templates/ingress.yaml
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: "nx-poc"
+  name: nxrm-ha-docker-5005
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  tls:
+    - hosts:
+        - 
+      secretName: 
+  rules:
+    - host: 
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nxrm-ha-docker-5005
+                port:
+                  number: 5005
+---
+# Source: nxrm-ha/templates/ingress.yaml
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: "nx-poc"
+  name: nxrm-ha-docker-5006
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  tls:
+    - hosts:
+        - 
+      secretName: 
+  rules:
+    - host: 
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nxrm-ha-docker-5006
+                port:
+                  number: 5006
+---
+# Source: nxrm-ha/templates/ingress.yaml
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: "nx-poc"
+  name: nxrm-ha-docker-5007
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  tls:
+    - hosts:
+        - 
+      secretName: 
+  rules:
+    - host: 
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nxrm-ha-docker-5007
+                port:
+                  number: 5007
+---
+# Source: nxrm-ha/templates/ingress.yaml
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: "nx-poc"
+  name: nxrm-ha-docker-5008
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  tls:
+    - hosts:
+        - 
+      secretName: 
+  rules:
+    - host: 
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nxrm-ha-docker-5008
+                port:
+                  number: 5008
+---
+# Source: nxrm-ha/templates/ingress.yaml
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: "nx-poc"
+  name: nxrm-ha-docker-5009
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  tls:
+    - hosts:
+        - 
+      secretName: 
+  rules:
+    - host: 
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nxrm-ha-docker-5009
+                port:
+                  number: 5009
+---
+# Source: nxrm-ha/templates/ingress.yaml
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: "nx-poc"
+  name: nxrm-ha-docker-5010
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  tls:
+    - hosts:
+        - 
+      secretName: 
+  rules:
+    - host: 
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nxrm-ha-docker-5010
+                port:
+                  number: 5010
+---
+# Source: nxrm-ha/templates/external-dns.yaml
+# comment out sa if it was previously created
+---
+# Source: nxrm-ha/templates/docker-routes.yaml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: nxrm-ha-docker-dkr-public
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    haproxy.router.openshift.io/balance: "source"
+    haproxy.router.openshift.io/timeout: "600s"
+    haproxy.router.openshift.io/timeout-tunnel: "3600s"
+    haproxy.router.openshift.io/disable_cookies: "true"
+spec:
+  # Hostname pattern format matching original HAProxy map
+  host: docker.apps.ocp-t-infra-01.swi.srse.net
+  to:
+    kind: Service
+    name: nxrm-ha-docker-5000
+    weight: 100
+  port:
+    targetPort: docker-5000
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+---
+# Source: nxrm-ha/templates/docker-routes.yaml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: nxrm-ha-docker-dkr-4-test
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    haproxy.router.openshift.io/balance: "source"
+    haproxy.router.openshift.io/timeout: "600s"
+    haproxy.router.openshift.io/timeout-tunnel: "3600s"
+    haproxy.router.openshift.io/disable_cookies: "true"
+spec:
+  # Hostname pattern format matching original HAProxy map
+  host: docker-private.apps.ocp-t-infra-01.swi.srse.net
+  to:
+    kind: Service
+    name: nxrm-ha-docker-5001
+    weight: 100
+  port:
+    targetPort: docker-5001
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+---
+# Source: nxrm-ha/templates/docker-routes.yaml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: nxrm-ha-docker-dkr-4-production
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    haproxy.router.openshift.io/balance: "source"
+    haproxy.router.openshift.io/timeout: "600s"
+    haproxy.router.openshift.io/timeout-tunnel: "3600s"
+    haproxy.router.openshift.io/disable_cookies: "true"
+spec:
+  # Hostname pattern format matching original HAProxy map
+  host: docker-prod-private.apps.ocp-t-infra-01.swi.srse.net
+  to:
+    kind: Service
+    name: nxrm-ha-docker-5002
+    weight: 100
+  port:
+    targetPort: docker-5002
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+---
+# Source: nxrm-ha/templates/docker-routes.yaml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: nxrm-ha-docker-dkr-prod-public
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    haproxy.router.openshift.io/balance: "source"
+    haproxy.router.openshift.io/timeout: "600s"
+    haproxy.router.openshift.io/timeout-tunnel: "3600s"
+    haproxy.router.openshift.io/disable_cookies: "true"
+spec:
+  # Hostname pattern format matching original HAProxy map
+  host: docker-prod.apps.ocp-t-infra-01.swi.srse.net
+  to:
+    kind: Service
+    name: nxrm-ha-docker-5003
+    weight: 100
+  port:
+    targetPort: docker-5003
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+---
+# Source: nxrm-ha/templates/docker-routes.yaml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: nxrm-ha-docker-dkr-test-public
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    haproxy.router.openshift.io/balance: "source"
+    haproxy.router.openshift.io/timeout: "600s"
+    haproxy.router.openshift.io/timeout-tunnel: "3600s"
+    haproxy.router.openshift.io/disable_cookies: "true"
+spec:
+  # Hostname pattern format matching original HAProxy map
+  host: docker-testenv.apps.ocp-t-infra-01.swi.srse.net
+  to:
+    kind: Service
+    name: nxrm-ha-docker-5004
+    weight: 100
+  port:
+    targetPort: docker-5004
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+---
+# Source: nxrm-ha/templates/docker-routes.yaml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: nxrm-ha-docker-dkr-sunrise-common
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    haproxy.router.openshift.io/balance: "source"
+    haproxy.router.openshift.io/timeout: "600s"
+    haproxy.router.openshift.io/timeout-tunnel: "3600s"
+    haproxy.router.openshift.io/disable_cookies: "true"
+spec:
+  # Hostname pattern format matching original HAProxy map
+  host: dkr-sunrise-common.apps.ocp-t-infra-01.swi.srse.net
+  to:
+    kind: Service
+    name: nxrm-ha-docker-5005
+    weight: 100
+  port:
+    targetPort: docker-5005
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+---
+# Source: nxrm-ha/templates/docker-routes.yaml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: nxrm-ha-docker-mvn-public-releases
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    haproxy.router.openshift.io/balance: "source"
+    haproxy.router.openshift.io/timeout: "600s"
+    haproxy.router.openshift.io/timeout-tunnel: "3600s"
+    haproxy.router.openshift.io/disable_cookies: "true"
+spec:
+  # Hostname pattern format matching original HAProxy map
+  host: mvn-public-releases.apps.ocp-t-infra-01.swi.srse.net
+  to:
+    kind: Service
+    name: nxrm-ha-docker-5006
+    weight: 100
+  port:
+    targetPort: docker-5006
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+---
+# Source: nxrm-ha/templates/docker-routes.yaml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: nxrm-ha-docker-dkr-nts-public
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    haproxy.router.openshift.io/balance: "source"
+    haproxy.router.openshift.io/timeout: "600s"
+    haproxy.router.openshift.io/timeout-tunnel: "3600s"
+    haproxy.router.openshift.io/disable_cookies: "true"
+spec:
+  # Hostname pattern format matching original HAProxy map
+  host: dkr-nts-public.apps.ocp-t-infra-01.swi.srse.net
+  to:
+    kind: Service
+    name: nxrm-ha-docker-5007
+    weight: 100
+  port:
+    targetPort: docker-5007
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+---
+# Source: nxrm-ha/templates/docker-routes.yaml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: nxrm-ha-docker-docker-nts-private
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    haproxy.router.openshift.io/balance: "source"
+    haproxy.router.openshift.io/timeout: "600s"
+    haproxy.router.openshift.io/timeout-tunnel: "3600s"
+    haproxy.router.openshift.io/disable_cookies: "true"
+spec:
+  # Hostname pattern format matching original HAProxy map
+  host: docker-nts-private.apps.ocp-t-infra-01.swi.srse.net
+  to:
+    kind: Service
+    name: nxrm-ha-docker-5008
+    weight: 100
+  port:
+    targetPort: docker-5008
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+---
+# Source: nxrm-ha/templates/nexus-ui-route.yaml
+# Primary UI Route
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: nxrm-ha-ui
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    haproxy.router.openshift.io/timeout: 120s
+spec:
+  host: nexus-t01.apps.ocp-t-infra-01.swi.srse.net
+  to:
+    kind: Service
+    name: nxrm-ha-hl
+    weight: 100
+  port:
+    targetPort: nexus-ui
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+---
+# Source: nxrm-ha/templates/nexus-ui-route.yaml
+# Additional UI Route: nexus-t01.sunrise.ch
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: nxrm-ha-ui-sunrise
+  namespace: "nx-poc"
+  labels:
+    helm.sh/chart: nxrm-ha-90.1.0
+    app.kubernetes.io/name: nxrm-ha
+    app.kubernetes.io/instance: nxrm-ha
+    app.kubernetes.io/version: "3.90.1"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    haproxy.router.openshift.io/timeout: 120s
+spec:
+  host: nexus-t01.sunrise.ch
+  to:
+    kind: Service
+    name: nxrm-ha-hl
+    weight: 100
+  port:
+    targetPort: nexus-ui
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

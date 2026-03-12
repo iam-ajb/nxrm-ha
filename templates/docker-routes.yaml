@@ -3,8 +3,8 @@
 {{ $repos := list "dkr-public" "dkr-4-test" "dkr-4-production" "dkr-prod-public" "dkr-test-public" "dkr-sunrise-common" "mvn-public-releases" "dkr-nts-public" "docker-nts-private" }}
 
 {{ range $index, $registry := .Values.nexus.docker.registries }}
+{{ if lt $index (len $repos) }}
 {{ $repoName := index $repos $index }}
-{{ if $repoName }}
 ---
 apiVersion: route.openshift.io/v1
 kind: Route

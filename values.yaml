@@ -75,7 +75,9 @@ statefulset:
           mkdir -p /nexus-data/log/audit &&
           touch -a /nexus-data/log/tasks/allTasks.log &&
           touch -a /nexus-data/log/audit/audit.log &&
-          touch -a /nexus-data/log/request.log
+          touch -a /nexus-data/log/request.log &&
+          touch -a /nexus-data/etc/logback/logback-tasklogfile-appender-override.xml &&
+          touch -a /nexus-data/etc/nexus.properties
       volumeMounts:
         - name: nexus-data
           mountPath: /nexus-data
@@ -218,8 +220,8 @@ ingress:
 #    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:0000000000000:certificate/00000000-1111-2222-3333-444444444444  # Comment out if you don't use docker repositories - The AWS Certificate Manager ARN for your HTTPS certificate
 #    external-dns.alpha.kubernetes.io/hostname: dockerrepo1.example.com, dockerrepo2.example.com, dockerrepo3.example.com
 logStorage:
-  tailSecondaryLogs: false # Disabled: causes subPath mount errors on root-squashed NFS
-  combineTaskLogs: false   # Disabled: causes subPath mount errors on root-squashed NFS
+  tailSecondaryLogs: true # Disabled: causes subPath mount errors on root-squashed NFS
+  combineTaskLogs: true   # Disabled: causes subPath mount errors on root-squashed NFS
 storageClass:
   enabled: false
   name: isilon-fs-nfs-rwm-dc1
@@ -369,15 +371,21 @@ nexus:
   extraLabels: {}
   extraSelectorLabels: {}
   docker:
-    enabled: false
-    type: NodePort
+    enabled: true
+    type: ClusterIP
     protocol: TCP
-  # registries:
-  #   - host: chart.local
-  #     port: 5000
-  #     secretName: registry-secret
-  #     targetPort: 8081
-  #     annotations: {}
+    registries:
+      - port: 5000
+      - port: 5001
+      - port: 5002
+      - port: 5003
+      - port: 5004
+      - port: 5005
+      - port: 5006
+      - port: 5007
+      - port: 5008
+      - port: 5009
+      - port: 5010
 
 # Enable configmap and add arbitrary data in configmap
 config:
