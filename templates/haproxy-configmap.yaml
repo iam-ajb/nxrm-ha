@@ -55,14 +55,14 @@ data:
       # Rules for {{ .repo }}
       acl is_{{ .repo | replace "-" "_" }} var(txn.repo) -m str {{ .repo }}
       
-      # 1. Strip 'library/' if present AND prepend repo name
+      # 1. Map V2 root check (most specific for empty path)
+      http-request replace-path ^/v2/?$ /repository/{{ .repo }}/v2/ if is_{{ .repo | replace "-" "_" }}
+
+      # 2. Strip 'library/' if present AND prepend repo name
       http-request replace-path ^/v2/library/(.*) /repository/{{ .repo }}/v2/\1 if is_{{ .repo | replace "-" "_" }}
       
-      # 2. Map standard V2 image requests
-      http-request replace-path ^/v2/(.*) /repository/{{ .repo }}/v2/\1 if is_{{ .repo | replace "-" "_" }} !path_reg(^/v2/library/)
-      
-      # 3. Map V2 root check
-      http-request replace-path ^/v2/?$ /repository/{{ .repo }}/v2/ if is_{{ .repo | replace "-" "_" }}
+      # 3. Map standard V2 image requests (only if it wasn't a library path)
+      http-request replace-path ^/v2/(.*) /repository/{{ .repo }}/v2/\1 if is_{{ .repo | replace "-" "_" }} !{ path_reg(^/v2/library/) }
       {{- end }}
 
 
