@@ -53,17 +53,13 @@ data:
       acl repo_found var(txn.repo) -m found
       acl repo_not_empty var(txn.repo) -m str "" -n
 
-      # Strip 'library/' namespace prepended by Docker pulls for official images AND route to Nexus repo
-      acl is_v2_library path_reg ^/v2/library/.+
-      http-request replace-path ^/v2/library/(.*)$ /repository/%[var(txn.repo)]/v2/\1 if repo_found repo_not_empty is_v2_library
-
-      # Docker V2 API Standard: /v2/<image>/... → /repository/<repo>/v2/<image>/...
-      acl is_v2_subpath path_reg ^/v2/.+
-      acl is_v2_root    path /v2/ /v2
-      http-request replace-path ^/v2/(.*)$ /repository/%[var(txn.repo)]/v2/\1 if repo_found repo_not_empty is_v2_subpath !is_v2_library !is_v2_root
-
-      # Docker version check: /v2/ → /repository/<repo>/v2/
-      http-request set-path /repository/%[var(txn.repo)]/v2/ if repo_found repo_not_empty is_v2_root
+      # Docker V2 API: /v2/... → /repository/<repo>/v2/... (with library/ stripping)
+      # This rule handles:
+      # 1. /v2/ -> /repository/<repo>/v2/
+      # 2. /v2/image -> /repository/<repo>/v2/image
+      # 3. /v2/library/image -> /repository/<repo>/v2/image (strips Docker's auto-library prefix)
+      acl is_v2 path_reg ^/v2(/|$)
+      http-request set-path /repository/%[var(txn.repo)]%[path,regsub(^/v2/library/,/v2/)] if is_v2 repo_found repo_not_empty
 
       # Requests with /repository/ prefix (from Nexus Location headers) pass through
 
