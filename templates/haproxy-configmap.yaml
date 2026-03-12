@@ -28,6 +28,9 @@ data:
     frontend docker_frontend
       bind *:{{ .Values.dockerProxy.containerPort }}
 
+      # Safe diagnostic log format (using %[var] strings which are always available)
+      log-format "%ci:%cp [%tr] %ft %b/%s %TR/%Tw/%Tc/%Tr/%Ta %ST %B %r repo:%[var(txn.repo)] host:%[var(txn.clean_host)]"
+
       # ─── Resolve repo name from Host header ───
       # The Host header might include a port (e.g. `docker.domain.com:443`).
       # Use `field(1,':')` to reliably strip any trailing port.
