@@ -50,15 +50,21 @@ data:
       acl repo_found var(txn.repo) -m found
       acl repo_not_empty var(txn.repo) -m str "" -n
 
-      # 1. Detection
-      acl is_v2 path_reg ^/v2(/|$)
-      acl is_v2_library path -i -m beg /v2/library/
+      # We generate explicit rules for each repo to avoid any variable interpolation artifacts in the path.
+      {{- range .Values.dockerProxy.route.repos }}
+      # Rules for {{ .repo }}
+      acl is_{{ .repo | replace "-" "_" }} var(txn.repo) -m str {{ .repo }}
+      
+      # 1. Strip 'library/' if present AND prepend repo name
+      http-request replace-path ^/v2/library/(.*) /repository/{{ .repo }}/v2/\1 if is_{{ .repo | replace "-" "_" }}
+      
+      # 2. Map standard V2 image requests
+      http-request replace-path ^/v2/(.*) /repository/{{ .repo }}/v2/\1 if is_{{ .repo | replace "-" "_" }} !path_reg(^/v2/library/)
+      
+      # 3. Map V2 root check
+      http-request replace-path ^/v2/?$ /repository/{{ .repo }}/v2/ if is_{{ .repo | replace "-" "_" }}
+      {{- end }}
 
-      # 2. Strip 'library/' if present (replaces /v2/library/ with /v2/)
-      http-request set-path %[path,regsub(^/v2/library/,/v2/)] if is_v2_library
-
-      # 3. Final Prepend: Route to the correct Nexus repository context
-      http-request set-path /repository/%[var(txn.repo)]%[path] if is_v2 repo_found repo_not_empty
 
       # Requests with /repository/ prefix (from Nexus Location headers) pass through
 
