@@ -434,10 +434,10 @@ spec:
         - args:
           - -c
           - mkdir -p /nexus-data/etc/logback && mkdir -p /nexus-data/log/tasks && mkdir -p
-            /nexus-data/log/audit && touch -a /nexus-data/log/tasks/allTasks.log && touch
-            -a /nexus-data/log/audit/audit.log && touch -a /nexus-data/log/request.log &&
-            touch -a /nexus-data/etc/logback/logback-tasklogfile-appender-override.xml &&
-            touch -a /nexus-data/etc/nexus.properties
+            /nexus-data/log/audit && mkdir -p /nexus-data/tmp && mkdir -p /nexus-data/cache
+            && touch -a /nexus-data/log/tasks/allTasks.log && touch -a /nexus-data/log/audit/audit.log
+            && touch -a /nexus-data/log/request.log && touch -a /nexus-data/etc/logback/logback-tasklogfile-appender-override.xml
+            && touch -a /nexus-data/etc/nexus.properties
           command:
           - /bin/sh
           image: busybox:1.33.1
@@ -452,6 +452,10 @@ spec:
           volumeMounts:
           - mountPath: /nexus-data
             name: nexus-data
+          - mountPath: /nexus-data/tmp
+            name: nexus-tmp
+          - mountPath: /nexus-data/cache
+            name: nexus-cache
       containers:
         - name: nxrm-app
           image: sonatype/nexus3:3.90.1
@@ -571,6 +575,11 @@ spec:
             - mountPath: /nexus-data/etc/nexus.properties
               name: nxrm-ha-properties
               subPath: nexus.properties
+              
+            - mountPath: /nexus-data/tmp
+              name: nexus-tmp
+            - mountPath: /nexus-data/cache
+              name: nexus-cache
         - name: request-log
           image: busybox:1.33.1
           args: [/bin/sh, -c, 'tail -n+1 -F /nexus-data/log/request.log']
@@ -622,6 +631,11 @@ spec:
             items:
             - key: nexus.properties
               path: nexus.properties
+        
+        - emptyDir: {}
+          name: nexus-tmp
+        - emptyDir: {}
+          name: nexus-cache
         - name: nxrm-secrets
           secret:
             secretName: nxrm-ha-dbsecret
