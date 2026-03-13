@@ -42,11 +42,15 @@ statefulset:
       emptyDir: {}
     - name: nexus-cache
       emptyDir: {}
+    - name: nexus-elasticsearch
+      emptyDir: {}
   additionalVolumeMounts:
     - name: nexus-tmp
       mountPath: /nexus-data/tmp
     - name: nexus-cache
       mountPath: /nexus-data/cache
+    - name: nexus-elasticsearch
+      mountPath: /nexus-data/elasticsearch
   additionalContainers: []
   # # Add annotations to statefulset to enhance configurations
   annotations: {}
@@ -83,6 +87,7 @@ statefulset:
           mkdir -p /nexus-data/log/audit &&
           mkdir -p /nexus-data/tmp &&
           mkdir -p /nexus-data/cache &&
+          mkdir -p /nexus-data/elasticsearch &&
           touch -a /nexus-data/log/tasks/allTasks.log &&
           touch -a /nexus-data/log/audit/audit.log &&
           touch -a /nexus-data/log/request.log &&
@@ -95,6 +100,8 @@ statefulset:
           mountPath: /nexus-data/tmp
         - name: nexus-cache
           mountPath: /nexus-data/cache
+        - name: nexus-elasticsearch
+          mountPath: /nexus-data/elasticsearch
       resources:
         limits:
           cpu: "0.2"
