@@ -423,12 +423,6 @@ nexus:
       - port: 5008
         repo: docker-nts-private
         host: dkr-nts-private
-      - port: 5009
-        repo: dkr-9-unused
-        host: docker9
-      - port: 5010
-        repo: dkr-10-unused
-        host: docker10
 
 # Enable configmap and add arbitrary data in configmap
 config:
