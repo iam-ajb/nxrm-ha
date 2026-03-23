@@ -14,8 +14,8 @@ metadata:
     haproxy.router.openshift.io/timeout-tunnel: "3600s"
     haproxy.router.openshift.io/disable_cookies: "true"
 spec:
-  # Hostname is now generated from the 'host' property in values.yaml
-  host: {{ $registry.host }}.apps.ocp-t-infra-01.swi.srse.net
+  # Hostname is now generated from the 'host' property with the new domain
+  host: {{ $registry.host }}.nexus-t01.sunrise.ch
   to:
     kind: Service
     name: {{ include "nexus.fullname" $root | trunc 54 }}-docker
