@@ -23,8 +23,20 @@ spec:
   port:
     targetPort: docker-{{ $registry.port }}
   tls:
-    termination: edge
-    insecureEdgeTerminationPolicy: Redirect
+    termination: {{ default "edge" $root.Values.nexus.docker.tls.termination }}
+    insecureEdgeTerminationPolicy: {{ default "Redirect" $root.Values.nexus.docker.tls.insecureEdgeTerminationPolicy }}
+    {{- if $root.Values.nexus.docker.tls.certificate }}
+    certificate: |
+      {{ $root.Values.nexus.docker.tls.certificate | nindent 6 }}
+    {{- end }}
+    {{- if $root.Values.nexus.docker.tls.key }}
+    key: |
+      {{ $root.Values.nexus.docker.tls.key | nindent 6 }}
+    {{- end }}
+    {{- if $root.Values.nexus.docker.tls.caCertificate }}
+    caCertificate: |
+      {{ $root.Values.nexus.docker.tls.caCertificate | nindent 6 }}
+    {{- end }}
 ---
 {{- end }}
 {{- end }}

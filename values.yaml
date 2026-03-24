@@ -395,6 +395,12 @@ nexus:
     enabled: true
     type: ClusterIP
     protocol: TCP
+    tls:
+      termination: edge
+      insecureEdgeTerminationPolicy: Redirect
+      certificate: ""  # TLS cert for *.nexus-t01.sunrise.ch (use --set-file)
+      key: ""          # private key
+      caCertificate: "" # CA cert (optional)
     registries:
       - port: 5000
         repo: dkr-public
