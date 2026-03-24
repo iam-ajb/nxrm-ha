@@ -59,7 +59,23 @@ spec:
     weight: 100
   port:
     targetPort: nexus-ui
-  {{- if .tls }}
+  {{- if $.Values.wildcardTls.enabled }}
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+    {{- if $.Values.wildcardTls.certificate }}
+    certificate: |
+      {{ $.Values.wildcardTls.certificate | nindent 6 }}
+    {{- end }}
+    {{- if $.Values.wildcardTls.key }}
+    key: |
+      {{ $.Values.wildcardTls.key | nindent 6 }}
+    {{- end }}
+    {{- if $.Values.wildcardTls.caCertificate }}
+    caCertificate: |
+      {{ $.Values.wildcardTls.caCertificate | nindent 6 }}
+    {{- end }}
+  {{- else if .tls }}
   tls:
     termination: {{ default "edge" .tls.termination }}
     insecureEdgeTerminationPolicy: {{ default "Redirect" .tls.insecureEdgeTerminationPolicy }}

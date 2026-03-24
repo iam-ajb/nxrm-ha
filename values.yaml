@@ -378,6 +378,14 @@ secret:
       arn: arn:aws:secretsmanager:us-east-1:000000000000:secret:admin-nxrm-password
     rds:
       arn: arn:aws:secretsmanager:us-east-1:000000000000:secret:nxrmrds-cred-nexus
+
+# Global wildcard TLS for *.nexus-t01.sunrise.ch
+wildcardTls:
+  enabled: true
+  certificate: "" # Path to wildcard TLS certificate (use --set-file)
+  key: ""         # Path to private key
+  caCertificate: "" # Path to CA cert (optional)
+
 nexus:
   # Default the pods UID and GID to match the nexus3 container.
   # Customize or remove these values from the securityContext as appropriate for
@@ -395,12 +403,6 @@ nexus:
     enabled: true
     type: ClusterIP
     protocol: TCP
-    tls:
-      termination: edge
-      insecureEdgeTerminationPolicy: Redirect
-      certificate: ""  # TLS cert for *.nexus-t01.sunrise.ch (use --set-file)
-      key: ""          # private key
-      caCertificate: "" # CA cert (optional)
     registries:
       - port: 5000
         repo: dkr-public
