@@ -23,19 +23,19 @@ spec:
   port:
     targetPort: docker-{{ $registry.port }}
   tls:
-    termination: {{ default "edge" $root.Values.nexus.docker.tls.termination }}
-    insecureEdgeTerminationPolicy: {{ default "Redirect" $root.Values.nexus.docker.tls.insecureEdgeTerminationPolicy }}
-    {{- if $root.Values.nexus.docker.tls.certificate }}
+    termination: {{ default "edge" $root.Values.nexusRoute.tls.termination }}
+    insecureEdgeTerminationPolicy: {{ default "Redirect" $root.Values.nexusRoute.tls.insecureEdgeTerminationPolicy }}
+    {{- if $root.Values.nexusRoute.tls.certificate }}
     certificate: |
-      {{ $root.Values.nexus.docker.tls.certificate | nindent 6 }}
+      {{ $root.Values.nexusRoute.tls.certificate | nindent 6 }}
     {{- end }}
-    {{- if $root.Values.nexus.docker.tls.key }}
+    {{- if $root.Values.nexusRoute.tls.key }}
     key: |
-      {{ $root.Values.nexus.docker.tls.key | nindent 6 }}
+      {{ $root.Values.nexusRoute.tls.key | nindent 6 }}
     {{- end }}
-    {{- if $root.Values.nexus.docker.tls.caCertificate }}
+    {{- if $root.Values.nexusRoute.tls.caCertificate }}
     caCertificate: |
-      {{ $root.Values.nexus.docker.tls.caCertificate | nindent 6 }}
+      {{ $root.Values.nexusRoute.tls.caCertificate | nindent 6 }}
     {{- end }}
 ---
 {{- end }}
