@@ -422,9 +422,6 @@ nexus:
       - port: 5005
         repo: dkr-sunrise-common
         host: dkr-sunrise-common
-      - port: 5006
-        repo: mvn-public-releases
-        host: maven-repos
       - port: 5007
         repo: dkr-nts-public
         host: docker-nts
