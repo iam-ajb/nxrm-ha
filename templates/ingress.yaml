@@ -102,6 +102,5 @@ spec:
                 name: {{ $fullName | trunc 49 }}-docker-{{ $registry.port }}
                 port:
                   number: {{ $registry.port }}
----
 {{- end }}
 {{- end }}

@@ -1,5 +1,5 @@
 {{- if .Values.nexusRoute.enabled }}
-# Primary UI Route
+# Primary UI Route — uses OCP default cert (no custom cert needed)
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
@@ -23,23 +23,11 @@ spec:
   tls:
     termination: {{ .Values.nexusRoute.tls.termination }}
     insecureEdgeTerminationPolicy: {{ .Values.nexusRoute.tls.insecureEdgeTerminationPolicy }}
-    {{- if .Values.nexusRoute.tls.certificate }}
-    certificate: |
-      {{ .Values.nexusRoute.tls.certificate | nindent 6 }}
-    {{- end }}
-    {{- if .Values.nexusRoute.tls.key }}
-    key: |
-      {{ .Values.nexusRoute.tls.key | nindent 6 }}
-    {{- end }}
-    {{- if .Values.nexusRoute.tls.caCertificate }}
-    caCertificate: |
-      {{ .Values.nexusRoute.tls.caCertificate | nindent 6 }}
-    {{- end }}
   {{- end }}
 {{- if .Values.nexusRoute.additionalHosts }}
 {{- range .Values.nexusRoute.additionalHosts }}
 ---
-# Additional UI Route: {{ .host }}
+# Additional UI Route: {{ .host }} — uses wildcardTls
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
@@ -63,33 +51,20 @@ spec:
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
-    {{- if $.Values.wildcardTls.certificate }}
+    {{- $cert := include "nexus.wildcardTls.cert" $ }}
+    {{- if $cert }}
     certificate: |
-      {{ $.Values.wildcardTls.certificate | nindent 6 }}
+      {{ $cert | nindent 6 }}
     {{- end }}
-    {{- if $.Values.wildcardTls.key }}
+    {{- $key := include "nexus.wildcardTls.key" $ }}
+    {{- if $key }}
     key: |
-      {{ $.Values.wildcardTls.key | nindent 6 }}
+      {{ $key | nindent 6 }}
     {{- end }}
-    {{- if $.Values.wildcardTls.caCertificate }}
+    {{- $ca := include "nexus.wildcardTls.ca" $ }}
+    {{- if $ca }}
     caCertificate: |
-      {{ $.Values.wildcardTls.caCertificate | nindent 6 }}
-    {{- end }}
-  {{- else if .tls }}
-  tls:
-    termination: {{ default "edge" .tls.termination }}
-    insecureEdgeTerminationPolicy: {{ default "Redirect" .tls.insecureEdgeTerminationPolicy }}
-    {{- if .tls.certificate }}
-    certificate: |
-      {{ .tls.certificate | nindent 6 }}
-    {{- end }}
-    {{- if .tls.key }}
-    key: |
-      {{ .tls.key | nindent 6 }}
-    {{- end }}
-    {{- if .tls.caCertificate }}
-    caCertificate: |
-      {{ .tls.caCertificate | nindent 6 }}
+      {{ $ca | nindent 6 }}
     {{- end }}
   {{- end }}
 {{- end }}

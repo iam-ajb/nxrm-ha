@@ -14,7 +14,6 @@ metadata:
     haproxy.router.openshift.io/timeout-tunnel: "3600s"
     haproxy.router.openshift.io/disable_cookies: "true"
 spec:
-  # Hostname is now generated from the 'host' property with the new domain
   host: {{ $registry.host }}.nexus-t01.sunrise.ch
   to:
     kind: Service
@@ -25,17 +24,20 @@ spec:
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
-    {{- if $root.Values.wildcardTls.certificate }}
+    {{- $cert := include "nexus.wildcardTls.cert" $root }}
+    {{- if $cert }}
     certificate: |
-      {{ $root.Values.wildcardTls.certificate | nindent 6 }}
+      {{ $cert | nindent 6 }}
     {{- end }}
-    {{- if $root.Values.wildcardTls.key }}
+    {{- $key := include "nexus.wildcardTls.key" $root }}
+    {{- if $key }}
     key: |
-      {{ $root.Values.wildcardTls.key | nindent 6 }}
+      {{ $key | nindent 6 }}
     {{- end }}
-    {{- if $root.Values.wildcardTls.caCertificate }}
+    {{- $ca := include "nexus.wildcardTls.ca" $root }}
+    {{- if $ca }}
     caCertificate: |
-      {{ $root.Values.wildcardTls.caCertificate | nindent 6 }}
+      {{ $ca | nindent 6 }}
     {{- end }}
 ---
 {{- end }}

@@ -242,7 +242,7 @@ ingress:
 #    external-dns.alpha.kubernetes.io/hostname: dockerrepo1.example.com, dockerrepo2.example.com, dockerrepo3.example.com
 logStorage:
   tailSecondaryLogs: true # Disabled: causes subPath mount errors on root-squashed NFS
-  combineTaskLogs: true   # Disabled: causes subPath mount errors on root-squashed NFS
+  combineTaskLogs: true # Disabled: causes subPath mount errors on root-squashed NFS
 storageClass:
   enabled: false
   name: isilon-fs-nfs-rwm-dc1
@@ -379,12 +379,19 @@ secret:
     rds:
       arn: arn:aws:secretsmanager:us-east-1:000000000000:secret:nxrmrds-cred-nexus
 
+# ─────────────────────────────────────────────────────────
 # Global wildcard TLS for *.nexus-t01.sunrise.ch
+# Used by: Sunrise UI route + all Docker subdomain routes
+# ─────────────────────────────────────────────────────────
 wildcardTls:
   enabled: true
-  certificate: "" # Path to wildcard TLS certificate (use --set-file)
-  key: ""         # Path to private key
-  caCertificate: "" # Path to CA cert (optional)
+  # Option 1: Reference a pre-existing Secret (for ArgoCD / SealedSecrets)
+  # The Secret must have keys: tls.crt, tls.key, ca.crt (optional)
+  existingSecretName: "nexus-wildcard-tls"
+  # Option 2: Inline values (legacy, for --set-file usage)
+  certificate: ""
+  key: ""
+  caCertificate: ""
 
 nexus:
   # Default the pods UID and GID to match the nexus3 container.
@@ -435,33 +442,26 @@ config:
   mountPath: /sonatype-nexus-conf
   data: null
 
-
 # ─────────────────────────────────────────────────────────
 # Nexus UI Route (OCP Route for web UI access)
 # ─────────────────────────────────────────────────────────
 nexusRoute:
   enabled: true
-  host: nexus-t01.apps.ocp-t-infra-01.swi.srse.net    # OCP default domain — covered by cluster cert
+  host: nexus-t01.apps.ocp-t-infra-01.swi.srse.net # OCP default domain — covered by cluster cert
   annotations:
     haproxy.router.openshift.io/timeout: "120s"
   tls:
     enabled: true
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
-    certificate:                        # leave empty — OCP default cert
-    key:                                # leave empty
-    caCertificate:                      # leave empty
+    certificate: # leave empty — OCP default cert
+    key: # leave empty
+    caCertificate: # leave empty
 
-  # Additional UI hostnames (each gets its own Route with its own TLS cert)
+  # Additional UI hostnames (TLS inherited from wildcardTls)
   additionalHosts:
-    - name: sunrise                     # Route will be named: nexus-...-ui-sunrise
-      host: nexus-t01.sunrise.ch        # custom domain — needs its own cert
-      tls:
-        termination: edge
-        insecureEdgeTerminationPolicy: Redirect
-        certificate:                    # TLS cert for nexus-t01.sunrise.ch (use --set-file)
-        key:                            # private key
-        caCertificate:                  # CA cert (optional)
+    - name: sunrise                     # Route: nexus-...-ui-sunrise
+      host: nexus-t01.sunrise.ch        # Uses wildcardTls cert automatically
 
 # ─────────────────────────────────────────────────────────
 # Pod Disruption Budget
