@@ -385,9 +385,17 @@ secret:
 # ─────────────────────────────────────────────────────────
 wildcardTls:
   enabled: true
-  # Option 1: Reference a pre-existing Secret (for ArgoCD / SealedSecrets)
-  # The Secret must have keys: tls.crt, tls.key, ca.crt (optional)
+  # Name of the Secret that will hold the decrypted TLS data
   existingSecretName: "nexus-wildcard-tls"
+
+  # Option 1: SealedSecret (recommended for ArgoCD / GitOps)
+  # Paste encrypted values from: kubeseal --raw --namespace nx-poc --name nexus-wildcard-tls
+  sealedSecret:
+    enabled: true
+    encryptedCert: ""     # kubeseal --raw < wildcard.nexus-t01.sunrise.ch.crt
+    encryptedKey: ""      # kubeseal --raw < wildcert.key
+    encryptedCaCert: ""   # kubeseal --raw < GlobalSign_CA.crt (optional)
+
   # Option 2: Inline values (legacy, for --set-file usage)
   certificate: ""
   key: ""
