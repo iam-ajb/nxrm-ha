@@ -27,29 +27,34 @@ spec:
 {{- if .Values.nexusRoute.additionalHosts }}
 {{- range .Values.nexusRoute.additionalHosts }}
 ---
-# Additional UI Route: {{ .host }}
-apiVersion: route.openshift.io/v1
-kind: Route
+# Additional UI — Ingress for {{ .host }} (uses wildcard TLS Secret)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
   name: {{ include "nexus.fullname" $ }}-ui-{{ .name }}
   namespace: {{ default $.Release.Namespace $.Values.namespaces.nexusNs.name | quote }}
   labels:
     {{- include "nexus.labels" $ | nindent 4 }}
-  {{- with $.Values.nexusRoute.annotations }}
   annotations:
-    {{- toYaml . | nindent 4 }}
-  {{- end }}
+    haproxy.router.openshift.io/hsts_header: "max-age=31536000;includeSubDomains"
 spec:
-  host: {{ .host }}
-  to:
-    kind: Service
-    name: {{ include "nexus.service.headless" $ }}
-    weight: 100
-  port:
-    targetPort: nexus-ui
+  {{- if $.Values.wildcardTls.enabled }}
   tls:
-    termination: edge
-    insecureEdgeTerminationPolicy: Redirect
+    - hosts:
+        - {{ .host }}
+      secretName: {{ $.Values.wildcardTls.existingSecretName }}
+  {{- end }}
+  rules:
+    - host: {{ .host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "nexus.service.headless" $ }}
+                port:
+                  number: 8081
 {{- end }}
 {{- end }}
 {{- end }}
