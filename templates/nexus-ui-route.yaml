@@ -27,7 +27,7 @@ spec:
 {{- if .Values.nexusRoute.additionalHosts }}
 {{- range .Values.nexusRoute.additionalHosts }}
 ---
-# Additional UI Route: {{ .host }} — uses wildcardTls
+# Additional UI Route: {{ .host }}
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
@@ -47,26 +47,9 @@ spec:
     weight: 100
   port:
     targetPort: nexus-ui
-  {{- if $.Values.wildcardTls.enabled }}
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
-    {{- $cert := include "nexus.wildcardTls.cert" $ }}
-    {{- if $cert }}
-    certificate: |
-      {{ $cert | nindent 6 }}
-    {{- end }}
-    {{- $key := include "nexus.wildcardTls.key" $ }}
-    {{- if $key }}
-    key: |
-      {{ $key | nindent 6 }}
-    {{- end }}
-    {{- $ca := include "nexus.wildcardTls.ca" $ }}
-    {{- if $ca }}
-    caCertificate: |
-      {{ $ca | nindent 6 }}
-    {{- end }}
-  {{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

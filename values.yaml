@@ -381,25 +381,20 @@ secret:
 
 # ─────────────────────────────────────────────────────────
 # Global wildcard TLS for *.nexus-t01.sunrise.ch
-# Used by: Sunrise UI route + all Docker subdomain routes
+# Used by: Docker Ingress objects (via secretName reference)
 # ─────────────────────────────────────────────────────────
 wildcardTls:
   enabled: true
-  # Name of the Secret that will hold the decrypted TLS data
+  # Name of the Secret that Ingress objects will reference for TLS
   existingSecretName: "nexus-wildcard-tls"
 
-  # Option 1: SealedSecret (recommended for ArgoCD / GitOps)
+  # SealedSecret (for ArgoCD / GitOps)
   # Paste encrypted values from: kubeseal --raw --namespace nx-poc --name nexus-wildcard-tls
   sealedSecret:
     enabled: true
     encryptedCert: ""     # kubeseal --raw < wildcard.nexus-t01.sunrise.ch.crt
     encryptedKey: ""      # kubeseal --raw < wildcert.key
     encryptedCaCert: ""   # kubeseal --raw < GlobalSign_CA.crt (optional)
-
-  # Option 2: Inline values (legacy, for --set-file usage)
-  certificate: ""
-  key: ""
-  caCertificate: ""
 
 nexus:
   # Default the pods UID and GID to match the nexus3 container.
